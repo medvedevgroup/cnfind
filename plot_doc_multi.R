@@ -1,4 +1,3 @@
-#!/home/pmedvedev/R-2.15.0/bin/Rscript
 args           <- commandArgs(TRUE)
 chr            <- args[1]
 pixel_width    <- args[2]
@@ -15,7 +14,11 @@ numFiles       <- (length(args) - basicArgs ) / 3
 outputPlotName <- paste(outBase, ".png", sep='')
 #png(outputPlotName, width=as.integer(pixel_width), height=250)
 png(outputPlotName, width=as.integer(pixel_width), height=400)
-colors         <- c("red", "blue", "green", "cyan", "orange")
+colors         <- c("green", "cyan", "orange", "blue", "red" )
+
+if (numFiles == 1) {
+	colors <- c("black")
+}
 
 #plot first doc 
 inputName      <- args[basicArgs + 1]
@@ -29,12 +32,12 @@ curFile <- 2
 
 #plot segment track
 segs           <- read.table(segmentsFile, header=T);
-#segs$seg.mean  <- segs$seg.mean
-segs$seg.mean  <- segs$seg.mean - 1
+segs$seg.mean  <- segs$seg.mean
+#segs$seg.mean  <- segs$seg.mean - 1
 gains          <- segs$Call > 0
 losses         <- segs$Call < 0
 neutral        <- segs$Call == 0
-points(tbl$Start, tbl[,inputColName] - 1, col="gray")
+#points(tbl$Start, tbl[,inputColName] - 1, col="gray") #plots the gray points of the first segment, dup
 segments(segs$Start[gains],   segs$seg.mean[gains],   segs$End[gains],   segs$seg.mean[gains],   col="blue",  lwd=3)
 segments(segs$Start[losses],  segs$seg.mean[losses],  segs$End[losses],  segs$seg.mean[losses],  col="red",   lwd=3)
 segments(segs$Start[neutral], segs$seg.mean[neutral], segs$End[neutral], segs$seg.mean[neutral], col="black", lwd=3)
@@ -43,9 +46,9 @@ segments(segs$Start[neutral], segs$seg.mean[neutral], segs$End[neutral], segs$se
 
 
 #plot horizontal lines
-abline(a=-1, b=0)
+#abline(a=-1, b=0)
 abline(a=0, b=0)
-abline(a=0.5850, b=0)
+#abline(a=0.5850, b=0)
 
 #plot snps
 if (snpFile != "nosnps") {
@@ -81,8 +84,8 @@ if (callsFile10 != "nocalls") {
 
 if (callsFile50 != "nocalls") {
 	calls     <- read.table(callsFile50, header=T)
-	lossCalls <- calls$Call < 0
-	gainCalls <- calls$Call > 0
+	lossCalls <- calls$Call < 0 & calls$Chr == chr
+	gainCalls <- calls$Call > 0 & calls$Chr == chr
 
 	yvals     <- rep(-2.0, length(calls$Start[lossCalls]))
 	segments(calls$Start[lossCalls], yvals, calls$End[lossCalls], yvals, col="red", lwd=2)

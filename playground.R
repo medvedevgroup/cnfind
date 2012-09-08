@@ -1,4 +1,3 @@
-#!/home/pmedvedev/R-2.15.0/bin/Rscript
 library("DNAcopy")
 args<-commandArgs(TRUE)
 inputName<-args[1]

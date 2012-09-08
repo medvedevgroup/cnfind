@@ -1,4 +1,3 @@
-#!/home/pmedvedev/R-2.15.0/bin/Rscript
 args            <- commandArgs(TRUE)
 f               <- file("stdin")
 #normFile        <- args[1]
@@ -11,12 +10,12 @@ win             <- read.table(f, header = T)
 sumExpected     <- sum(win$Expected)
 sumObserved     <- sum(win$Observed)
 
-win$ExpectedRaw <- win$Expected
-win$Expected    <- win$Expected * (sumObserved / sumExpected)
-win$RawRatio    <- win$Ratio
-win$RawLogRatio <- win$LogRatio
-win$Ratio       <- win$Observed / win$Expected
-win$LogRatio    <- log2(win$Ratio)
+#win$ExpectedRaw <- win$Expected
+#win$Expected    <- win$Expected * (sumObserved / sumExpected)
+#win$RawRatio    <- win$Ratio
+#win$RawLogRatio <- win$LogRatio
+#win$Ratio       <- win$Observed / win$Expected
+#win$LogRatio    <- log2(win$Ratio)
 
 
 if (normse != 0) {

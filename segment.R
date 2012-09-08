@@ -1,4 +1,3 @@
-#!/home/pmedvedev/R-2.15.0/bin/Rscript
 library("DNAcopy")
 args            <-commandArgs(TRUE)
 normse          <- as.numeric(args[1])
@@ -28,10 +27,13 @@ if (normse != 0) {
     segs2$pval       <- 2 * pnorm(-abs(segs2$Wald))
     segs2$Call       <- segs2$Wald / abs(segs2$Wald)
 	segs2$Call[segs2$pval > pvalCutoff] = 0
-	segs2$Chr        <- chr
+} else {
+	segs2$Call       <- 0
 }
 
-write.table(segs2, outputName, sep='\t', quote=F, row.names = F)
+segs2$Chr        <- chr
+
+write.table(segs2, outputName, sep='\t', quote=F, row.names=F)
 
 
 outputPlotName <- paste(outputName, ".pdf", sep='')

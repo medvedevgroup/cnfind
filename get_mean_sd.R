@@ -1,4 +1,3 @@
-#!/home/pmedvedev/R-2.15.0/bin/Rscript
 args            <- commandArgs(TRUE)
 f               <- file("stdin")
 column          <- args[1]

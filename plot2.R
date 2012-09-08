@@ -1,4 +1,3 @@
-#!/home/pmedvedev/R-2.15.0/bin/Rscript
 
 #plots all the gc bins
 flatchroms <-  c("chr5", "chr6", "chr8", "chr9", "chr10","chr12","chr13","chr14","chr19","chr22")

@@ -5,6 +5,7 @@ use POSIX;
 use File::Basename;
 use File::Path;
 use File::Copy;
+use File::HomeDir;
 use FindBin;
 
 sub getTime{
@@ -55,28 +56,27 @@ sub checkExists {
 
 
 sub usage{
-	die("Usage: \nMandatory options:\n\t--mode: can be all:stage1:stage2:make_gcbins:make_exp:calc_doc:make_windows:calc_pval:plot_doc_multi\n\t--work_dir\n\t--ref_folder\nOptional options:\n\t--purity\n\t--map_list: text files listing all the bam files\n\t--threads (def: 8)\n\t--chr: limit run to one chromosome\n\t--min_cnv_len: ignore calls less than this (def: 70k)\n\t--mappability: prefix of mappability and mask files (def: out76\n\t--nogc: disable gc correction\n\t--cgh_file: for plotting cgh data\n\t--snp_file: for plotting snp data\n\t--pval : desired significance level for calls\n\t--normal_dir : distribution to use for calculation p-vals for calls\n\t--par : parallelize over chroms, only valid if no chr specified (valid for stage2)\n\t--gcbins : file to use for gcbins instead of generating a new one (relevant to stage <= make_exp)\n\t--num_gc_bins : number of bins to use for gc correction (relevant to stage <= make_exp) (def: 40)\n\t--plot50 : only plot the 50mb calls\n\t--plot_no_calls : do not plot any calls\n\t--use_raw_ratio : use RawLowRatio column for segmentation \n");
+	die("Usage: \nMandatory options:\n\t--mode: can be all:stage1:stage2:make_gcbins:make_exp:calc_doc:calc_pval:plot_doc_multi\n\t--work_dir\nOptional options:\n\t--chr: limit run to one chromosome\n\t--par : parallelize over chroms, only valid if no chr specified (valid for stage2)\n\t--ref_folder\n\t--map_list: text files listing all the bam files\n\t--short_chr : chr names in bam files do not contain (valid for <= stage2)\'chr\' prefix\n\t--mappability: prefix of mappability and mask files (def: out76)\n\t--nogc: disable gc correction\n\t--gcbins : file to use for gcbins instead of generating a new one (relevant to stage <= make_exp)\n\t--num_gc_bins : number of bins to use for gc correction (relevant to stage <= make_exp) (def: 40)\n\t--pval : desired significance level for calls\n\t--normal_dir : distribution to use for calculation p-vals for calls\n\t--min_cnv_len: ignore calls less than this (def: 70k)\n\t--threads (not currently supported)(def: 8)\nSpecial options for ploting:\n\t--calls2plot : callfile to plot (relevant to stage plot_doc_multi)\n\t--cgh_file: for plotting cgh data (not currently supported)\n\t--snp_file: for plotting snp data\n");
 }
 
 my $mode;
 my $work_dir;
-my $purity;
 my %options=();
 my $threads = 8;
-my $blooddir = $FindBin::Bin;
 my $min_cnv_len = 70000;
 my $size_gc_win  = 1000;
 my $num_gc_bins  = 40;
 my $map_list;
 my $chr;
 my $chr_names_filename;
-my $ref_folder = "/home/pmedvedev/data/hg19comp/";
-my $exec_folder = "~/blood/code/";
+my $ref_folder = File::HomeDir->my_home . "/data/hg19comp/";
+my $Rfolder = File::HomeDir->my_home . "/bin/";
+my $exec_folder = $FindBin::Bin; #"~/blood/code/";
 my $mappability_prefix = "out76";
 my $alt_work_dir;
 my $cgh_file;
 my $nogc = 0;
-my $short_ref_name = 0;
+my $short_chr = 0;
 my $general_input;
 my $temp_dir = "/tmp/pmedvedev/";
 my $snp_file;
@@ -84,9 +84,7 @@ my $pval = 0.05;
 my $normal_dir;
 my $gcbins;
 my $par = 0;
-my $plot50 = 0;
-my $use_raw_ratio = 0;
-my $plot_no_calls = 0;
+my $calls2plot;
 
 
 
@@ -94,10 +92,10 @@ my $plot_no_calls = 0;
 my $message = "";
 foreach (@ARGV) { $message .= "$_ " }
 
-GetOptions ('mode=s' => \$mode, 'map_list=s' => \$map_list, 'work_dir=s' => \$work_dir, 'purity=f' => \$purity, 'threads=i' => \$threads, 'min_cnv_len=i' => \$min_cnv_len, 'chr=s' => \$chr, 'ref_folder=s' => \$ref_folder, 'mappability=s' => \$mappability_prefix, 'nogc' => \$nogc, 'alt_work_dir=s' => \$alt_work_dir, 'cgh_file=s' => \$cgh_file, 'snp_file=s' => \$snp_file, 'short_ref_name' =>\$short_ref_name, 'general=s' => \$general_input, 'pval=f' => \$pval, 'normal_dir=s' => \$normal_dir, 'par' => \$par, 'gcbins=s' => \$gcbins, 'num_gc_bins=i' => \$num_gc_bins, 'plot50' => \$plot50, 'use_raw_ratio' => \$use_raw_ratio, 'plot_no_calls' => \$plot_no_calls) or usage();
+GetOptions ('mode=s' => \$mode, 'map_list=s' => \$map_list, 'work_dir=s' => \$work_dir, 'threads=i' => \$threads, 'min_cnv_len=i' => \$min_cnv_len, 'chr=s' => \$chr, 'ref_folder=s' => \$ref_folder, 'mappability=s' => \$mappability_prefix, 'nogc' => \$nogc, 'alt_work_dir=s' => \$alt_work_dir, 'cgh_file=s' => \$cgh_file, 'snp_file=s' => \$snp_file, 'short_chr' =>\$short_chr, 'general=s' => \$general_input, 'pval=f' => \$pval, 'normal_dir=s' => \$normal_dir, 'par' => \$par, 'gcbins=s' => \$gcbins, 'num_gc_bins=i' => \$num_gc_bins, 'calls2plot=s' => \$calls2plot) or usage();
 
 open ( LOGFILE, ">>log.txt") or die ("$0 : failed to open log file for output: $!\n");
-print LOGFILE getTime() . "\t blood.pl called with $message\n";
+print LOGFILE getTime() . "\t $0 called with $message\n";
 
 (-d $ref_folder)       or die( "Folder $ref_folder does not exist!");
 if (defined($work_dir)) {
@@ -161,8 +159,12 @@ if (!defined($chr) && $mode ne "stage1") {
 		execCommand("convert +append $work_dir/chr[123]/*.png $work_dir/all1.png; convert +append $work_dir/chr[6789]/*.png $work_dir/chr1[01]/*.png $work_dir/all2.png; convert +append $work_dir/chr[89]/*.png $work_dir/chr1[0123]/*.png $work_dir/all3.png; convert +append $work_dir/chr1[456789]/*.png $work_dir/chr2?/*.png $work_dir/chrX/*.png $work_dir/all4.png; convert -append $work_dir/all?.png $work_dir/plot_doc.png");
 	}
 
-	if ($mode eq "stage2" || $mode eq "make_exp" || $mode eq "calc_doc" || $mode eq "make_windows") {
-		execCommand("cat $work_dir/chr*/chr*.win | sort -k1,1 -k2n,2 | uniq > $work_dir/all.win");
+	if ($mode eq "stage2" || $mode eq "make_exp" || $mode eq "calc_doc" || $mode eq "calc_pval" || $mode eq "finish") {
+		execCommand("cat $work_dir/chr*/chr*.win.1.pval | sort -k1,1 -k2n,2 | uniq | grep -v chrX | grep -v chrY > $work_dir/all.windows");
+		execCommand("cat $work_dir/chr*/chr*.segments | drop_first_col | sort -k1,1 -k2n,2 | uniq | grep -v chrX | grep -v chrY > $work_dir/all.segments");
+
+		$general_input = "$work_dir Sample LogRatio";
+		goto PLOT_DOC_MULTI;
 	}
 
 	exit;
@@ -186,12 +188,12 @@ if ($mode eq "stage1") {
 	goto MAKE_EXP;
 } elsif ($mode eq "calc_doc") {
 	goto CALC_DOC;
-} elsif ($mode eq "make_windows") {
-	goto MAKE_WINDOWS;
 } elsif ($mode eq "calc_pval") {
 	goto CALC_PVAL;
 } elsif ($mode eq "plot_doc_multi") {
 	goto PLOT_DOC_MULTI;
+} elsif ($mode eq "finish") {
+	goto FINISH;
 } else {
 	print STDERR "Unknown mode: $mode.\n";
 	die();
@@ -210,7 +212,11 @@ if (!defined($map_list)) {
 	die("Error: map_list not provided.\n");
 }
 checkExists($map_list, "file");
-execCommand("$exec_folder/maps2bin $map_list $all_chromosomes_file bam");
+my $param = "bla";
+if ($short_chr) {
+	$param = "short_chr";
+}
+execCommand("$exec_folder/maps2bin $map_list $all_chromosomes_file bam $param");
 
 if ($mode eq "stage1") {
 	exit(0);
@@ -238,8 +244,8 @@ if (!(-e $rmap_file)) {
 checkExists($rmap_file, "file");
 
 my $chr_lbl = $chr;
-if ($short_ref_name) {
-	$chr_lbl = substr $chr, 3;
+if ($short_chr) { 
+	$chr_lbl = substr $chr, 3; 
 }
 
 execCommand("$exec_folder/make_simple_coverage $rmap_file $scov_file $chr_lbl $chr_len");
@@ -297,13 +303,6 @@ my $max_total_window_size = 1500000;
 execCommand("$exec_folder/make_masked_windows $mask_file $exp_file $window_size $max_total_window_size $chr | doc_walker $scov_file $exp_file full | gcContent $ref_folder/fasta_files_folder/$chr.fa | awk '{ print \$1, \$2, \$3, log(\$5) / log(2), \$5, \$7, \$9, \$11, \$13, \$14 }' | add_first_line \"Chr Start End LogRatio Ratio Observed Expected Masked ObservedFull GC\" | tr ' ' '\\t' > $win_file");
 
 
-MAKE_WINDOWS:
-
-checkExists($win_file, "file");
-
-execCommand("cat $win_file | drop_first_line | $exec_folder/lower_resolution 10 2000000| awk '{ \$4 = \$6 / \$7; \$5 = log(\$4) / log(2); \$10 = \"NA\"; print \$0; }' | add_first_line \"Chr Start End LogRatio Ratio Observed Expected Masked ObservedFull GC\" | tr ' ' '\\t' > $win_file.10");
-execCommand("cat $win_file | drop_first_line | $exec_folder/lower_resolution 50 5000000| awk '{ \$4 = \$6 / \$7; \$5 = log(\$4) / log(2); \$10 = \"NA\"; print \$0; }' | add_first_line \"Chr Start End LogRatio Ratio Observed Expected Masked ObservedFull GC\" | tr ' ' '\\t' > $win_file.50");
-
 ####################################
 ###   CALC_PVAL                  ###
 ###   Files used:                ###
@@ -313,40 +312,33 @@ execCommand("cat $win_file | drop_first_line | $exec_folder/lower_resolution 50 
 
 CALC_PVAL:
 
-execCommand("rm $win_file.*.pval");
+execCommand("rm -f $win_file.*.pval");
 
 my $normal_sd = 0;
 
 if (defined($normal_dir)) {
 	my $normal_win1  = "$normal_dir/$chr/$chr.win.1.pval";
-	   $normal_sd   = `cat $normal_win1 | $exec_folder/get_mean_sd.R Ratio | item 2`; 
+	   $normal_sd   = `cat $normal_win1 | $Rfolder/Rscript $exec_folder/get_mean_sd.R Ratio | $exec_folder/item 2`; 
 	   chomp $normal_sd;
 	print STDERR "Found sd: $normal_sd.\n";
 }
 
 
 
-my $ev10  = $normal_sd / sqrt(10); 
-my $ev50  = $normal_sd / sqrt(50);
+#my $ev10  = $normal_sd / sqrt(10); 
+#my $ev50  = $normal_sd / sqrt(50);
 
 my $call_file = "$work_dir/$chr/$chr.calls";
-execCommand("rm $call_file*");
-execCommand("cat $win_file    | $exec_folder/add_pvals.R $normal_sd   $call_file.1  $pval > $win_file.1.pval");
-execCommand("cat $win_file.10 | $exec_folder/add_pvals.R $ev10        $call_file.10 $pval > $win_file.10.pval");
-execCommand("cat $win_file.50 | $exec_folder/add_pvals.R $ev50        $call_file.50 $pval > $win_file.50.pval");
-
-execCommand("cat $win_file.1.pval |  sbsJoin2   |  awk '{  if (\$1 != \"Chr\") \$1 = \"sub\" curchr;  if (\$3 != \$18 - 1) curchr++; print \$0; }' | tr ' ' '\\t' | item 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 | tr ' ' '\\t' > $win_file.1.pval.forsegment"); 
-
-my $ratio_header = "LogRatio";
-if ($use_raw_ratio) {
-	$ratio_header = "RawLogRatio";
-}
-
-execCommand("$exec_folder/segment.R $normal_sd $pval  $win_file.1.pval.forsegment $work_dir/$chr/$chr.segments $chr $ratio_header" );
-
+execCommand("rm -f $call_file*");
+execCommand("cat $win_file    | $Rfolder/Rscript $exec_folder/add_pvals.R $normal_sd   $call_file.1  $pval > $win_file.1.pval");
+execCommand("cat $win_file.1.pval |  awk '{ if (\$2 != last + 1) curchr++;  if (\$1 != \"Chr\") \$1 = \"sub\" curchr; last = \$3; print \$0; }' | tr ' ' '\\t' > $win_file.1.pval.forsegment"); 
+execCommand("$Rfolder/Rscript $exec_folder/segment.R $normal_sd $pval  $win_file.1.pval.forsegment $work_dir/$chr/$chr.segments $chr LogRatio" );
 
 
 #execCommand("cat $work_dir/$chr/$chr.calls.* | grep -v Call | sort -k2n,2 -k3n,3 | merge_intervals.py 0 | tr ' ' '\\t' > $work_dir/$chr/$chr.calls");
+
+FINISH:
+my $dummy;
 
 exit();
 
@@ -392,23 +384,17 @@ while (<CHR_NAMES>) {
 	my $chr_len = `cat $chr_len_file | awk '{ if (\$1 == "$chr") print \$2; }'`;
 	my $pixel_width = int(1000 * $chr_len / 247249719); 
 
-	my $call_file1  = "nocalls";
-	my $call_file10 = "nocalls";
 	my $call_file50 = "nocalls";
-	if (defined($work_dir) && !$plot_no_calls) {
-		$call_file50 = "$work_dir/$chr/$chr.calls.50";
-		if (!$plot50) {
-			$call_file1  = "$work_dir/$chr/$chr.calls.1";
-			$call_file10 = "$work_dir/$chr/$chr.calls.10";
-		}
+	if (defined($work_dir) && defined($calls2plot)) {
+		$call_file50 = $calls2plot; 
 	}
 
-	print CMDFILE "$exec_folder/plot_doc_multi.R $chr $pixel_width $temp_dir/compound_plots.$chr $snp_file $work_dir/$chr/$chr.segments $call_file1 $call_file10 $call_file50 $whatever &\n";
+	print CMDFILE "$Rfolder/Rscript $exec_folder/plot_doc_multi.R $chr $pixel_width $temp_dir/compound_plots.$chr $snp_file $work_dir/$chr/$chr.segments nocalls nocalls $call_file50 $whatever &\n";
 }
 print CMDFILE "wait\n";
 close CMDFILE;
-execCommand("rm $temp_dir/compound_plot*");
-execCommand("rm compound_plot.png");
+execCommand("rm -f $temp_dir/compound_plot*");
+execCommand("rm -f $work_dir/coverage_plot.png");
 
 execCommand("cat rjobs.txt | sh");
 
@@ -416,7 +402,7 @@ execCommand("convert +append $temp_dir/compound_plots.chr[123].png $temp_dir/com
 	convert +append $temp_dir/compound_plots.chr[4567].png $temp_dir/compound_plots.all2.png; 
 	convert +append $temp_dir/compound_plots.chr[89].png $temp_dir/compound_plots.chr1[0123].png $temp_dir/compound_plots.all3.png; 
 	convert +append $temp_dir/compound_plots.chr1[456789].png $temp_dir/compound_plots.chr2[012].png $temp_dir/compound_plots.all4.png; 
-	convert -append $temp_dir/compound_plots.all?.png compound_plot.png");
+	convert -append $temp_dir/compound_plots.all?.png $work_dir/coverage_plot.png");
 
 execCommand("convert -append $temp_dir/compound_plots.chr[1234].png compound_plots1.png;
 	convert -append $temp_dir/compound_plots.chr[789].png $temp_dir/compound_plots.chr10.png compound_plots2.png;
@@ -441,7 +427,6 @@ execCommand("convert -append $temp_dir/compound_plots.chr[1234].png compound_plo
 
 
 exit;
-
 
 
 
