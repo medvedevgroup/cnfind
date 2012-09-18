@@ -1,0 +1,1 @@
+perl -anwe '{chomp;@_=split(/\s/,$_);shift @_; print join("\t",@_),"\n";}'

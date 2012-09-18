@@ -3,7 +3,7 @@ CC    = g++
 
 
 # Default target
-all: maps2bin make_simple_coverage make_gcbins make_exp gem2masks make_masked_windows split_gem make_fasta_random lower_resolution
+all: maps2bin make_simple_coverage make_gcbins doc_walker make_exp gem2masks make_masked_windows split_gem make_fasta_random lower_resolution gcContent
 	@echo "compilation done"
 
 
@@ -23,6 +23,10 @@ make_gcbins: make_gcbins.o
 	$(CC) make_gcbins.o -o make_gcbins
 make_gcbins.o : make_gcbins.cpp
 	$(CC) -c $(COPT) make_gcbins.cpp -o make_gcbins.o
+doc_walker: doc_walker.o
+	$(CC) doc_walker.o -o doc_walker
+doc_walker.o : doc_walker.cpp
+	$(CC) -c $(COPT) doc_walker.cpp -o doc_walker.o
 make_exp: make_exp.o
 	$(CC) make_exp.o -o make_exp
 make_exp.o : make_exp.cpp
@@ -47,6 +51,10 @@ lower_resolution: lower_resolution.o
 	$(CC) lower_resolution.o -o lower_resolution
 lower_resolution.o : lower_resolution.cpp
 	$(CC) -c $(COPT) lower_resolution.cpp -o lower_resolution.o
+gcContent: gcContent.o
+	$(CC) gcContent.o -o gcContent
+gcContent.o : gcContent.cpp
+	$(CC) -c $(COPT) gcContent.cpp -o gcContent.o
 
 # Target deleting unwanted files
 clean:

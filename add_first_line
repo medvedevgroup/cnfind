@@ -1,0 +1,7 @@
+#!/usr/bin/perl
+my $first_line = $ARGV[0];
+print "$first_line\n";
+while(<STDIN>) {
+	print $_;
+	}
+

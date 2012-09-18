@@ -12,7 +12,6 @@ basicArgs      <- 8
 numFiles       <- (length(args) - basicArgs ) / 3
 
 outputPlotName <- paste(outBase, ".png", sep='')
-#png(outputPlotName, width=as.integer(pixel_width), height=250)
 png(outputPlotName, width=as.integer(pixel_width), height=400)
 colors         <- c("green", "cyan", "orange", "blue", "red" )
 

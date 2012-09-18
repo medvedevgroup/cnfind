@@ -3,13 +3,12 @@ f               <- file("stdin")
 #normFile        <- args[1]
 normmean        <- 1.0
 normse          <- as.numeric(args[1])
-callFile        <- args[2]
-pvalCutoff      <- as.numeric(args[3])
+#callFile        <- args[2] 
+#pvalCutoff      <- as.numeric(args[3])
 
 win             <- read.table(f, header = T)
-sumExpected     <- sum(win$Expected)
-sumObserved     <- sum(win$Observed)
-
+#sumExpected     <- sum(win$Expected)
+#sumObserved     <- sum(win$Observed)
 #win$ExpectedRaw <- win$Expected
 #win$Expected    <- win$Expected * (sumObserved / sumExpected)
 #win$RawRatio    <- win$Ratio
@@ -23,8 +22,8 @@ if (normse != 0) {
 	win$pval        <- 2 * pnorm(-abs(Wald))
 	win$Call        <- Wald / abs(Wald)
 	win$sdUsed      <- rep(normse, length(win$Call))
-	calls           <- subset(win, win$pval < pvalCutoff)[c("Chr", "Start", "End", "Call")]
-	write.table(calls, callFile, sep='\t', quote=F, row.names = F)
+	#calls           <- subset(win, win$pval < pvalCutoff)[c("Chr", "Start", "End", "Call")]
+	#write.table(calls, callFile, sep='\t', quote=F, row.names = F)
 } else {
 	win$pval        <- rep("NA", length(win$Ratio))
 	win$Call        <- rep("NA", length(win$Ratio))
