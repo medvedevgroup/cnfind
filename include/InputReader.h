@@ -54,6 +54,18 @@ public:
 		return true;
 	}
 
+	// checks if no refNames start with "chr"
+	bool isRefShort() {
+		if (input_format != "bam") {
+			cerr << "InputReader: isRefShort function is only supported in bam mode\n";
+			exit(1);
+		}
+		for (int i = 0; i < refVector.size(); i++) {
+			if (refVector[i].RefName.substr(0,3) == "chr") return false;
+		}
+		return true;
+	}
+
 	~InputReader() {
 		if (input_format == "bam"){
 			delete bamreader;

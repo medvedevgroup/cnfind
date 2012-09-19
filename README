@@ -17,6 +17,7 @@ The hg19 companion package must be downloaded and unpacked (http://compbio.cs.to
 Input Files:
 The only data needed to run cnfind is one or multiple BAM files.
 The BAM file must contain all the mappings for a given read consecutively.
+TODO The reference names in the BAM file must be in chr10 or 10 
 
 Running:
 TODO explain stages, explain how to run with two samples
@@ -95,7 +96,7 @@ If it is lower (respectivelly, higher), then the pval given in the all.segments 
 
 Calling:
 If a normal was provided, then all segments with p-values less than the parameter pval are called as CNAs.
-If no normal was provided, then all segments with ratio means outside the range given by minratio/maxratio are called as CNAs.
+If no normal was provided, then all segments with ratio means outside the range given by minlogratio/maxlogratio are called as CNAs.
 
 
 CUSTOMIZATION
@@ -112,10 +113,12 @@ The package must contain the following directories:
 
 
 QUESTIONS?
-For any questions/issues/bugs, please contact cnver@cs.toronto.edu. If relevant, please include
+For any questions/issues/bugs, please contact cnfindATcse.psu.edu. 
+In order for us to help you, please include
 1. A long recursive listing (including time stamps and file-sizes) of the cnfind work_dir
 2. A long recursive listing of the ref_folder (where the companion package is)
 3. A long recursive listing of directory with the read mappings
-4. Contents of map_list file  (if appropriate)
-5. The log.txt file from the directory in which dnfind was invoked.
+4. If using multiple BAMs, then contents of bam_files.
+5. The first 1000 lines of at least one of the BAM files, including the header.
+6. The log.txt file from the directory in which cnfind was invoked.
 7. The stdout and stderr output of the cnfind run.

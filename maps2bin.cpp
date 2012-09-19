@@ -35,7 +35,7 @@ typedef map<string,int> ref_map_t;
 ref_map_t ref_names_map;
 vector<ofstream *> outf;
 ofstream readNamesIdx;
-string short_chr;
+string chr_format;
 
 // append every mapping with the norm odds, modified chromosome name, and dump it
 void process_block(deque<Map_t> & block) {
@@ -46,9 +46,6 @@ void process_block(deque<Map_t> & block) {
 	for (int i = 0; i < block.size(); i++) {
 		block[i].normodds = normodds;
 		string ref_name = block[i].ref_name;
-		if (short_chr == "short_chr") {
-			ref_name = "chr" + ref_name;
-		}
 		ref_map_t::iterator it = ref_names_map.find(ref_name); //Identify reference index
 		if (it != ref_names_map.end()) {
 			int file_index = it->second; 
@@ -63,7 +60,7 @@ void usage( int argc, char ** argv) {
 	cout << "\tmap_list     : file with names of mapping files.\n";
 	cout << "\tref_names    : file with names of reference sequences.\n";
 	cout << "\tinput_format : format of mapping files, either \"bam\" or \"txt\".\n";
-	cout << "\tshort_chr    : either \"short_chr\" or something else.\n";
+	cout << "\tchr_format   : either \"short\", \"long\", or \"auto\".";
 	cout << endl;
 	exit(1);
 }
@@ -74,8 +71,14 @@ int main ( int argc, char ** argv) {
 	read_file_into_vector(argv[1], map_list);
 	read_file_into_vector(argv[2], ref_names);
 	string input_format = argv[3];
-	short_chr    = argv[4];
+	chr_format = argv[4];
 	long read_id = 0;
+
+	//check input validity
+	if (chr_format != "auto" && chr_format != "short" && (chr_format != "long")) {
+		cerr << "maps2bin: chr_format is invalid";
+		exit(1);
+	}
 
 	//open outputfiles and initialize ref_names_map
 	outf.resize(ref_names.size());
@@ -92,6 +95,14 @@ int main ( int argc, char ** argv) {
 	uint64_t lastReadId = -1;
 	for (int map_file_index = 0; map_file_index < map_list.size(); map_file_index++) {
 		InputReader reader(input_format, map_list[map_file_index], lastReadId + 1);
+		if (chr_format == "auto") {
+			if (reader.isRefShort()) {
+				chr_format = "short";
+			} else {
+				chr_format = "long";
+			}
+		}
+
 		Map_t mapt;
 		deque<Map_t> block;
 		while (reader.getNext(mapt)) {
@@ -105,6 +116,9 @@ int main ( int argc, char ** argv) {
 				block.clear();
 			} 
 			lastReadId = mapt.read_id;
+			if (chr_format == "short") {
+				strcpy(mapt.ref_name, (string("chr") + mapt.ref_name).c_str());
+			}
 			block.push_back(mapt);
 		}
 		process_block(block);
