@@ -85,27 +85,28 @@ General options:
 \t--bam_files: either the name of a bam file or the name of a text files listing all the bam files (one per line)
 \t--singlestage: only run the stage specified by mode, and do not continue further
 \t--chr: limit run to one chromosome
-\t--par : parallelize over chroms, only valid if no chr specified (valid for stage2)
 \t--masks: prefix of masking files (def: 76mer)
 \t--chr_format: \"auto\", \"short\", or \"long\". Specifices whether ref names in BAM are given as \"chr10\" (long) or \"10\" (short). (valid for stage1 only) (def: auto)
-Normalization options:
-\t--win_size : size of windows to be used (def: 1mil)
-\t--nogc: disable gc correction (not supported for external use)
-\t--gcbins : file to use for gcbins instead of generating a new one (relevant to stage <= make_exp)
-\t--num_gc_bins : number of bins to use for gc correction (relevant to stage <= make_exp) (def: 40)
+Normalization and segmentation options:
+\t--normalization: \"auto\" or \"own_chr\" or \"chr*\" (def: auto)
+\t--num_gc_bins: number of bins to use for gc correction (relevant to stage <= make_exp) (def: 40)
+\t--win_size: size of windows to be used (def: 1mil)
 Calling options:
-\t--pval : desired significance level for calls (def: 0.05)
-\t--normal_dir : distribution to use for calculation pvals for calls
-\t--minlogratio : when normal_dir is not specified, the minimum logratio to consider normal
-\t--maxlogratio : the maximum ratio to consider normal
+\t--pval: desired significance level for calls (def: 0.05)
+\t--normal_dir: distribution to use for calculation pvals for calls
+\t--minlogratio: when normal_dir is not specified, the minimum logratio to consider normal
+\t--maxlogratio: the maximum ratio to consider normal
 Special options for ploting:
 \t--calls2plot : callfile to plot
 \t--cgh_file: for plotting cgh data (not currently supported)
 \t--snp_file: for plotting snp data
 \t--samples: for plotting multiple samples. String containing \"Sample1Dir Sample1Name ColToPlot1 Sample2Dir...\"
-Non-supported internal debugging options:
+Non-supported internal debugging options (do not use):
 \t--threads (not currently supported)(def: 8)
 \t--rmap_short_chr : chr names in rmap files are writen without \'chr\' prefix (valid in mode = stage2)
+\t--nogc: disable gc correction 
+\t--gcbins: file to use for gcbins instead of generating a new one (relevant to stage <= make_exp)
+\t--par: parallelize over chroms, only valid if no chr specified 
 Please see README for mode details
 \n");}
 
@@ -142,18 +143,45 @@ my $window_size = 1000000;
 my $minlogratio = 0;
 my $maxlogratio = 1000000;
 my @working_chroms;
+my $normalization = "auto";
 
 
 
 
 
-my $message = "";
-foreach (@ARGV) { $message .= "$_ " }
+my $prog_args = "";
+foreach (@ARGV) { $prog_args.= "$_ " }
 
-GetOptions ('mode=s' => \$mode, 'bam_files=s' => \$bam_files, 'work_dir=s' => \$work_dir, 'threads=i' => \$threads, 'chr=s' => \$chr, 'ref_folder=s' => \$ref_folder, 'masks=s' => \$masks_prefix, 'nogc' => \$nogc, 'alt_work_dir=s' => \$alt_work_dir, 'cgh_file=s' => \$cgh_file, 'snp_file=s' => \$snp_file, 'rmap_short_chr' =>\$rmap_short_chr, 'chr_format=s', \$chr_format, 'samples=s' => \$samples2plot, 'pval=f' => \$pval, 'minlogratio=f' => \$minlogratio, 'maxlogratio=f' => \$maxlogratio, 'normal_dir=s' => \$normal_dir, 'par' => \$par, 'gcbins=s' => \$gcbins, 'num_gc_bins=i' => \$num_gc_bins, 'calls2plot=s' => \$calls2plot, 'win_size=i' => \$window_size, 'singlestage' => \$singlestage) or usage();
+GetOptions (
+	'mode=s' => \$mode, 
+	'bam_files=s' => \$bam_files, 
+	'work_dir=s' => \$work_dir, 
+	'threads=i' => \$threads, 
+	'chr=s' => \$chr, 
+	'ref_folder=s' => \$ref_folder, 
+	'masks=s' => \$masks_prefix, 
+	'nogc' => \$nogc, 
+	'alt_work_dir=s' => \$alt_work_dir, 
+	'cgh_file=s' => \$cgh_file, 
+	'snp_file=s' => \$snp_file, 
+	'rmap_short_chr' =>\$rmap_short_chr, 
+	'chr_format=s', \$chr_format, 
+	'samples=s' => \$samples2plot, 
+	'pval=f' => \$pval, 
+	'minlogratio=f' => \$minlogratio, 
+	'maxlogratio=f' => \$maxlogratio, 
+	'normal_dir=s' => \$normal_dir, 
+	'par' => \$par, 
+	'gcbins=s' => \$gcbins, 
+	'num_gc_bins=i' => \$num_gc_bins, 
+	'calls2plot=s' => \$calls2plot, 
+	'win_size=i' => \$window_size, 
+	'singlestage' => \$singlestage, 
+	'normalization=s' => \$normalization
+) or usage();
 
 open ( LOGFILE, ">>log.txt") or die ("$0 : failed to open log file for output: $!\n");
-print LOGFILE getTime() . "\t $0 called with $message\n";
+print LOGFILE getTime() . "\t $0 called with $prog_args\n";
 
 if (!defined($ref_folder) && (-d $def_ref_folder)) {
 	$ref_folder = $def_ref_folder;
@@ -172,13 +200,26 @@ if (!defined($work_dir) && ($mode ne "plot_doc")) {
 
 (-d $ref_folder)         or die( "Folder $ref_folder does not exist!");
 my $chr_len_file         = checkExists("$ref_folder/chrom_lengths", "file");
-my $chr_len              = `cat $chr_len_file | awk '{ if (\$1 == "$chr") print \$2; }'` if (defined($chr));
 
-my $mask_file            = "$ref_folder/gem_mappability/$masks_prefix/$chr.mask";
-my $scov_file            = "$work_dir/$chr/$chr.scov";
-my $exp_file             = "$work_dir/$chr/$chr.exp"; 
-my $win_file             = "$work_dir/$chr/$chr.win"; 
-my $fasta_file           = "$ref_folder/fasta_files_folder/$chr.fa";
+my $chr_len;          
+my $mask_file;         
+my $scov_file;       
+my $exp_file;        
+my $win_file;       
+my $fasta_file;    
+
+sub setFileNames {
+	my ($chr) = @_;
+	$chr_len              = `cat $chr_len_file | awk '{ if (\$1 == "$chr") print \$2; }'`;
+	$mask_file            = "$ref_folder/gem_mappability/$masks_prefix/$chr.mask";
+	$scov_file            = "$work_dir/$chr/$chr.scov";
+	$exp_file             = "$work_dir/$chr/$chr.exp"; 
+	$win_file             = "$work_dir/$chr/$chr.win"; 
+	$fasta_file           = "$ref_folder/fasta_files_folder/$chr.fa";
+}
+
+
+
 my $all_chromosomes_file = checkExists("$ref_folder/allchr.txt", "file");
 my @all_chroms;
 open(CHR_NAMES, $all_chromosomes_file);
@@ -189,6 +230,7 @@ while (<CHR_NAMES>) {
 close(CHR_NAMES);
 
 
+=comment
 if (!defined($chr) && $mode ne "stage1" && $mode ne "plot_doc") {
 	if ($par) {
 		open (CMDFILE, ">rjobs.txt") or die ("$0 : failed to open rjobs.txt for output: $!\n");
@@ -198,9 +240,9 @@ if (!defined($chr) && $mode ne "stage1" && $mode ne "plot_doc") {
 		chomp;
 		$chr = $_;
 		if ($par) {
-			print CMDFILE "$0 $message --chr $chr &\n";
+			print CMDFILE "$0 $prog_args --chr $chr &\n";
 		} else {
-			execCommand("$0  $message --chr $chr  ");
+			execCommand("$0  $prog_args --chr $chr  ");
 		}
 
 	}
@@ -217,6 +259,7 @@ if (!defined($chr) && $mode ne "stage1" && $mode ne "plot_doc") {
 
 	exit;
 }
+=cut
 
 
 
@@ -280,8 +323,8 @@ if (defined($chr)) {
 }
 
 foreach $chr (@working_chroms) { 
-
 	mkpath("$work_dir/$chr");
+	setFileNames($chr);
 
 	my $rmap_file = "$work_dir/mapping_files/$chr.rmap";
 	if (!(-e $rmap_file)) {
@@ -315,6 +358,7 @@ if (defined($chr)) {
 
 foreach $chr (@working_chroms) { 
 	mkpath("$work_dir/$chr");
+	setFileNames($chr);
 	checkExists($mask_file, "file");
 	if ($nogc) {
 		$fasta_file = "$ref_folder/fasta_files_folder/random/$chr.fa";
@@ -345,6 +389,7 @@ if (defined($chr)) {
 
 foreach $chr (@working_chroms) { 
 	mkpath("$work_dir/$chr");
+	setFileNames($chr);
 	checkExists($mask_file, "file");
 	if ($nogc) {
 		$fasta_file = "$ref_folder/fasta_files_folder/random/$chr.fa";
@@ -365,8 +410,43 @@ foreach $chr (@working_chroms) {
 
 	execCommand("$exec_folder/make_exp $fasta_file $mask_file $scov_file $gcbins_file $size_gc_win $num_gc_bins $exp_file");
 }
+
+
 exit (0) if ($singlestage);
 
+####################################
+###   RENORMALIZE                ### 
+###   Files used:                ###
+###   Files created:             ###
+####################################
+RENORMALIZE:
+my $best_chr;
+if ($normalization eq "auto") {
+	$best_chr = `grep \"\" $work_dir/chr*/chr*.exp.rmse | tr ':' ' ' | sort -k2n,2 | head -1 | tee $work_dir/best_chr.txt | $exec_folder/item 1`;
+}
+
+if (defined($chr)) {
+	@working_chroms = ($chr);
+} else {
+	@working_chroms = @all_chroms;
+}
+
+foreach $chr (@working_chroms) { 
+	mkpath("$work_dir/$chr");
+	setFileNames($chr);
+	my $gcbins_file;
+	if ($normalization eq "own_chr") {
+		$gcbins_file = checkExists("$work_dir/$chr/$chr.gcbins", "file");
+	} elsif ($normalization eq "auto") {
+		$gcbins_file = checkExists("$work_dir/$best_chr/$best_chr.gcbins", "file");
+	} elsif ($normalization =~ /^chr[0-9XY]/) {
+		$gcbins_file = checkExists("$work_dir/$normalization/$normalization.gcbins", "file");
+	}
+	execCommand("$exec_folder/make_exp $fasta_file $mask_file $scov_file $gcbins_file $size_gc_win $num_gc_bins $exp_file");
+}
+
+
+exit (0) if ($singlestage);
 
 ####################################
 ###   MAKE_WIN                   ### 
@@ -381,14 +461,14 @@ if (defined($chr)) {
 }
 
 foreach $chr (@working_chroms) { 
-checkExists($exp_file, "file");
-checkExists($mask_file, "file");
-checkExists($scov_file, "file");
+	setFileNames($chr);
+	checkExists($exp_file, "file");
+	checkExists($mask_file, "file");
+	checkExists($scov_file, "file");
 
-my $max_total_window_size = 1.5 * $window_size;
-execCommand("$exec_folder/make_masked_windows $mask_file $window_size $max_total_window_size $chr | $exec_folder/doc_walker $scov_file $exp_file full | $exec_folder/gcContent $ref_folder/fasta_files_folder/$chr.fa | awk '{ print \$1, \$2, \$3, log(\$5) / log(2), \$5, \$7, \$9, \$11, \$13, \$14 }' | $exec_folder/add_first_line \"Chr Start End LogRatio Ratio Observed Expected Masked ObservedFull GC\" | tr ' ' '\\t' > $win_file");
+	my $max_total_window_size = 1.5 * $window_size;
+	execCommand("$exec_folder/make_masked_windows $mask_file $window_size $max_total_window_size $chr | $exec_folder/doc_walker $scov_file $exp_file full | $exec_folder/gcContent $ref_folder/fasta_files_folder/$chr.fa | awk '{ print \$1, \$2, \$3, log(\$5) / log(2), \$5, \$7, \$9, \$11, \$13, \$14 }' | $exec_folder/add_first_line \"Chr Start End LogRatio Ratio Observed Expected Masked ObservedFull GC\" | tr ' ' '\\t' > $win_file");
 }
-
 
 exit (0) if ($singlestage);
 
@@ -407,18 +487,13 @@ if (defined($chr)) {
 }
 
 foreach $chr (@working_chroms) { 
-	execCommand("rm -f $win_file.*.pval");
+	setFileNames($chr);
 
 	if (defined($normal_dir)) {
-		#my $normal_win1  = "$normal_dir/$chr/$chr.win.1.pval";
 		my $normal_win1  = "$normal_dir/all.windows";
 		$normal_sd   = `cat $normal_win1 | $Rfolder/Rscript $exec_folder/get_mean_sd.R Ratio | $exec_folder/item 2`; 
 		chomp $normal_sd;
-		#print STDERR "Found sd: $normal_sd.\n";
 	}
-
-
-#execCommand("cat $win_file    | $Rfolder/Rscript $exec_folder/add_pvals.R $normal_sd   > $win_file.1.pval");
 
 	execCommand("cat $win_file |  awk '{ if (\$2 != last + 1) curchr++;  if (\$1 != \"Chr\") \$1 = \"sub\" curchr; last = \$3; print \$0; }' | tr ' ' '\\t' > $win_file.forsegment"); 
 	execCommand("$Rfolder/Rscript $exec_folder/segment.R $normal_sd $pval  $win_file.forsegment $work_dir/$chr/$chr.segments $chr LogRatio $minlogratio $maxlogratio" );
@@ -459,6 +534,7 @@ my @files = split / /, $samples2plot;
 open (CMDFILE, ">rjobs.txt") or die ("$0 : failed to open rjobs.txt for output: $!\n");
 
 foreach $chr (@working_chroms) { 
+	setFileNames($chr);
 	my @changed_files;
 	for (my $i = 0; $i < scalar(@files); $i++) {
 		if (($i % 3) == 0) {

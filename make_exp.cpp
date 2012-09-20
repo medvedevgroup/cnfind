@@ -148,7 +148,6 @@ int main (int argc, char** argv) {
 
 	//calculate pos2lambda : expected arrivals per position
 	delete[] masks;
-	delete[] scov;
 	double* pos2lambda = (double*)malloc(sizeof(double)*(sequence.length()));
 	if (pos2lambda == NULL) {
 		fprintf(stderr,"Trouble allocating pos2lambda\n");
@@ -185,15 +184,31 @@ int main (int argc, char** argv) {
 		}
 	}
 
-	//write out gc file
+	//write out exp file
 	ofstream outf;
 	open_file_binary(outf, exp_filename);
 	outf.write((char *) pos2lambda, sizeof(double) * sequence.length());
 	outf.close();
 
+	//calc rmse between scov and exp
+	double se = 0;
+	long int positive_pos = 0;
+	for (int i = 0; i < sequence.length(); i++) {
+		if (pos2lambda[i] > 0) {
+			positive_pos++;
+			se += pow(pos2lambda[i] - scov[i], 2);
+		}
+	}
+	double rmse = sqrt(se / positive_pos);
+	open_file(outf, exp_filename + ".rmse");
+	outf << rmse << endl;
+	outf.close();
+
+
 	//printf("Repeats: %d, Un-Repeats: %d\n",repeats, not_repeats);
 	//printf("Shifted positions: %d\n",shifted_positions);
 
+	delete[] scov;
 	free(pos2lambda);
 	return 0;
 
