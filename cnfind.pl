@@ -76,9 +76,9 @@ sub checkExists {
 
 
 sub usage{
-	die("Usage: 
+	die("Cnfind usage: 
 Mandatory options:
-\t--mode: can be all:stage1:stage2:make_gcbins:make_exp:make_win:segment:finish:plot_doc
+\t--mode: can be all:stage1:stage2:make_gcbins:get_rmse:renormalize:make_win:segment:plot_doc
 \t--work_dir: output directory
 \t--ref_folder: location of companion package
 General options:
@@ -88,24 +88,26 @@ General options:
 \t--masks: prefix of masking files (def: 76mer)
 \t--chr_format: \"auto\", \"short\", or \"long\". Specifices whether ref names in BAM are given as \"chr10\" (long) or \"10\" (short). (valid for stage1 only) (def: auto)
 Normalization and segmentation options:
-\t--normalization: \"auto\" or \"own_chr\" or \"chr*\" (def: auto)
-\t--num_gc_bins: number of bins to use for gc correction (relevant to stage <= make_exp) (def: 40)
+\t--normalization: \"auto\" or \"own_chr\" or \"chr*\" or \"gw\"(def: gw)
+\t--num_gc_bins: number of bins to use for gc correction (def: 40)
 \t--win_size: size of windows to be used (def: 1mil)
 Calling options:
 \t--pval: desired significance level for calls (def: 0.05)
 \t--normal_dir: distribution to use for calculation pvals for calls
 \t--minlogratio: when normal_dir is not specified, the minimum logratio to consider normal
 \t--maxlogratio: the maximum ratio to consider normal
+\t--male: expect half the coverage on chrX (not yet supported)
 Special options for ploting:
 \t--calls2plot : callfile to plot
 \t--cgh_file: for plotting cgh data (not currently supported)
 \t--snp_file: for plotting snp data
 \t--samples: for plotting multiple samples. String containing \"Sample1Dir Sample1Name ColToPlot1 Sample2Dir...\"
-Non-supported internal debugging options (do not use):
+\t--fig_name: name of output figure for multiple samples
+Non-supported internal debugging options (they do not work as intended so do not use):
 \t--threads (not currently supported)(def: 8)
 \t--rmap_short_chr : chr names in rmap files are writen without \'chr\' prefix (valid in mode = stage2)
 \t--nogc: disable gc correction 
-\t--gcbins: file to use for gcbins instead of generating a new one (relevant to stage <= make_exp)
+\t--gcbins: file to use for gcbins instead of generating a new one 
 \t--par: parallelize over chroms, only valid if no chr specified 
 Please see README for mode details
 \n");}
@@ -131,19 +133,21 @@ my $singlestage= 0;
 my $rmap_short_chr = 0;
 my $chr_format = "auto";
 my $samples2plot;
+my $fig_name;
 my $temp_dir = tempdir();
 my $snp_file;
 my $pval = 0.05;
 my $gcbins;
 my $par = 0;
 my $calls2plot;
+my $male = 0;
 my $normal_dir;
 my $normal_sd = 0;
 my $window_size = 1000000; 
 my $minlogratio = 0;
 my $maxlogratio = 1000000;
 my @working_chroms;
-my $normalization = "auto";
+my $normalization = "gw";
 
 
 
@@ -175,6 +179,8 @@ GetOptions (
 	'gcbins=s' => \$gcbins, 
 	'num_gc_bins=i' => \$num_gc_bins, 
 	'calls2plot=s' => \$calls2plot, 
+	'fig_name=s' => \$fig_name, 
+	'male' => \$male, 
 	'win_size=i' => \$window_size, 
 	'singlestage' => \$singlestage, 
 	'normalization=s' => \$normalization
@@ -269,8 +275,10 @@ if ($mode eq "stage1") {
 	goto STAGE2;
 } elsif ($mode eq "make_gcbins") {
 	goto MAKE_GCBINS;
-} elsif ($mode eq "make_exp") {
-	goto MAKE_EXP;
+} elsif ($mode eq "get_rmse") {
+	goto GET_RMSE;
+} elsif ($mode eq "renormalize") {
+	goto RENORMALIZE;
 } elsif ($mode eq "make_win") {
 	goto MAKE_WIN;
 } elsif ($mode eq "segment") {
@@ -376,11 +384,11 @@ foreach $chr (@working_chroms) {
 exit (0) if ($singlestage);
 
 ####################################
-###   MAKE_EXP                   ### 
+###   GET_RMSE                   ### 
 ###   Files used:                ###
 ###   Files created:             ###
 ####################################
-MAKE_EXP:
+GET_RMSE:
 if (defined($chr)) {
 	@working_chroms = ($chr);
 } else {
@@ -422,8 +430,56 @@ exit (0) if ($singlestage);
 RENORMALIZE:
 my $best_chr;
 if ($normalization eq "auto") {
-	$best_chr = `grep \"\" $work_dir/chr*/chr*.exp.rmse | tr ':' ' ' | sort -k2n,2 | head -1 | tee $work_dir/best_chr.txt | $exec_folder/item 1`;
+	#find chr with min value in chr.exp.rmse file
+	my $best_min = 100000;
+	$best_chr = "chrHoward";
+	foreach $chr (@all_chroms) {
+		next if ($chr eq "chrX" || $chr eq "chrY");
+		my $rmse = `cat $work_dir/$chr/$chr.exp.rmse`;
+		if ($best_min > $rmse) {
+			$best_min = $rmse;
+			$best_chr = $chr;
+		}
+	}
+} elsif ($normalization eq "gw") {
+	#take the gcbins for each chr and average the labmdas to get all.gcbins
+	#just to be safe, only use the autosomes
+	my @tothits;
+	my @totlen;
+	my @rangestart;
+	my $header;
+	foreach $chr (@all_chroms) {
+		next if ($chr eq "chrX" || $chr eq "chrY");
+		open (GCBINS, "<$work_dir/$chr/$chr.gcbins") or die ("$0 : failed to open gcbins file for output: $!\n");
+		while (<GCBINS>) {
+			my @entry = split /\t/, $_;
+			my $bin = $entry[0];
+			$rangestart[$bin] = $entry[1];
+			my $hits = $entry[3];
+			my $len  = $entry[4];
+			if ($bin eq "Bin") {
+				$header = join("\t", @entry);
+				next;
+			}
+			$tothits[$bin] += $hits;
+			$totlen[$bin] += $len;
+		}
+		close(GCBINS);
+	}
+	open (GCBINS, ">$work_dir/all.gcbins") or die ("$0 : failed to open $work_dir/all.gcbins file for output: $!\n");
+	print GCBINS "$header";
+	for (my $i = 0; $i < $num_gc_bins; $i++) {
+		my $lambda;
+		if ($totlen[$i] == 0) {
+			$lambda = -2;
+		} else {
+			$lambda = $tothits[$i] / $totlen[$i];
+		}
+		print GCBINS "$i\t$rangestart[$i]\t$lambda\t$tothits[$i]\t$totlen[$i]\n";
+	}
+	close (GCBINS);
 }
+
 
 if (defined($chr)) {
 	@working_chroms = ($chr);
@@ -439,6 +495,8 @@ foreach $chr (@working_chroms) {
 		$gcbins_file = checkExists("$work_dir/$chr/$chr.gcbins", "file");
 	} elsif ($normalization eq "auto") {
 		$gcbins_file = checkExists("$work_dir/$best_chr/$best_chr.gcbins", "file");
+	} elsif ($normalization eq "gw") {
+		$gcbins_file = checkExists("$work_dir/all.gcbins", "file");
 	} elsif ($normalization =~ /^chr[0-9XY]/) {
 		$gcbins_file = checkExists("$work_dir/$normalization/$normalization.gcbins", "file");
 	}
@@ -509,8 +567,8 @@ exit (0) if ($singlestage);
 ####################################
 COLLECT:
 
-execCommand("cat $work_dir/chr*/chr*.win | sort -k1,1 -k2n,2 | uniq | grep -v chrX | grep -v chrY > $work_dir/all.windows");
-execCommand("cat $work_dir/chr*/chr*.segments | $exec_folder/drop_first_col | sort -k1,1 -k2n,2 | uniq | grep -v chrX | grep -v chrY > $work_dir/all.segments");
+execCommand("cat $work_dir/chr*/chr*.win | sort -k1,1 -k2n,2 | uniq > $work_dir/all.windows");
+execCommand("cat $work_dir/chr*/chr*.segments | $exec_folder/drop_first_col | sort -k1,1 -k2n,2 | uniq > $work_dir/all.segments");
 
 exit (0) if ($singlestage);
 
@@ -531,9 +589,9 @@ if (!defined($samples2plot)) {
 
 my @files = split / /, $samples2plot;
 
-open (CMDFILE, ">rjobs.txt") or die ("$0 : failed to open rjobs.txt for output: $!\n");
+open (CMDFILE, ">$temp_dir/rjobs.txt") or die ("$0 : failed to open rjobs.txt for output: $!\n");
 
-foreach $chr (@working_chroms) { 
+foreach $chr (@all_chroms) { 
 	setFileNames($chr);
 	my @changed_files;
 	for (my $i = 0; $i < scalar(@files); $i++) {
@@ -551,8 +609,6 @@ foreach $chr (@working_chroms) {
 		$snp_file = "nosnps";
 	}
 
-
-
 	my $chr_len = `cat $chr_len_file | awk '{ if (\$1 == "$chr") print \$2; }'`;
 	my $pixel_width = int(1000 * $chr_len / 247249719); 
 
@@ -560,40 +616,57 @@ foreach $chr (@working_chroms) {
 	if (defined($work_dir) && defined($calls2plot)) {
 		$call_file50 = $calls2plot; 
 	}
+	my $segment_file = "nosegments";
+	if (defined($work_dir)){
+		$segment_file = "$work_dir/$chr/$chr.segments";
+	}
 
-	print CMDFILE "$Rfolder/Rscript $exec_folder/plot_doc.R $chr $pixel_width $temp_dir/compound_plots.$chr $snp_file $work_dir/$chr/$chr.segments nocalls nocalls $call_file50 $whatever &\n";
+	print CMDFILE "$Rfolder/Rscript $exec_folder/plot_doc.R $chr $pixel_width $temp_dir/compound_plots.$chr $snp_file $segment_file nocalls nocalls $call_file50 $whatever &\n";
 }
 print CMDFILE "wait\n";
 close CMDFILE;
 execCommand("rm -f $temp_dir/compound_plot*");
-execCommand("rm -f $work_dir/coverage_plot.png");
 
-execCommand("cat rjobs.txt | sh");
 
-execCommand("convert +append $temp_dir/compound_plots.chr[123].png $temp_dir/compound_plots.all1.png; 
-	convert +append $temp_dir/compound_plots.chr[4567].png $temp_dir/compound_plots.all2.png; 
-	convert +append $temp_dir/compound_plots.chr[89].png $temp_dir/compound_plots.chr1[0123].png $temp_dir/compound_plots.all3.png; 
-	convert +append $temp_dir/compound_plots.chr1[456789].png $temp_dir/compound_plots.chr2[012].png $temp_dir/compound_plots.all4.png; 
-	convert -append $temp_dir/compound_plots.all?.png $work_dir/coverage_plot.png");
+#my $fig_name = "$work_dir/coverage_plot.png";
+#if (@files == 3) { $fig_name = "$work_dir/$files[1].png" }
 
-execCommand("convert -append $temp_dir/compound_plots.chr[1234].png $work_dir/compound_plots1.png;
-	convert -append $temp_dir/compound_plots.chr[789].png $temp_dir/compound_plots.chr10.png $work_dir/compound_plots2.png;
-	convert +append $temp_dir/compound_plots.chr1[12].png $temp_dir/compound_plots.all31.png;
-	convert +append $temp_dir/compound_plots.chr1[34].png $temp_dir/compound_plots.all32.png;
-	convert +append $temp_dir/compound_plots.chr1[567].png $temp_dir/compound_plots.all33.png;
-	convert +append $temp_dir/compound_plots.chr1[89].png $temp_dir/compound_plots.chr2[012].png  $temp_dir/compound_plots.all34.png;
-	convert -append $temp_dir/compound_plots.all3?.png $work_dir/compound_plots3.png;");
+if (!defined($fig_name)) {
+	usage();
+}
+
+execCommand("rm -f $fig_name"); 
+
+execCommand("cat $temp_dir/rjobs.txt | sh");
+
+if ($male) { 
+	execCommand("convert +append $temp_dir/compound_plots.chr[123].png $temp_dir/compound_plots.all1.png; 
+		convert +append $temp_dir/compound_plots.chr[4567].png $temp_dir/compound_plots.all2.png; 
+		convert +append $temp_dir/compound_plots.chr[89].png $temp_dir/compound_plots.chr1[0123].png $temp_dir/compound_plots.all3.png; 
+		convert +append $temp_dir/compound_plots.chr1[456789].png $temp_dir/compound_plots.chr2[012].png $temp_dir/compound_plots.chrX.png $temp_dir/compound_plots.chrY $temp_dir/compound_plots.all4.png; 
+		convert -append $temp_dir/compound_plots.all?.png $fig_name");
+} else {
+	execCommand("convert +append $temp_dir/compound_plots.chr[123].png $temp_dir/compound_plots.all1.png; 
+		convert +append $temp_dir/compound_plots.chr[4567].png $temp_dir/compound_plots.all2.png; 
+		convert +append $temp_dir/compound_plots.chr[89].png $temp_dir/compound_plots.chr1[0123].png $temp_dir/compound_plots.all3.png; 
+		convert +append $temp_dir/compound_plots.chr1[456789].png $temp_dir/compound_plots.chr2[012].png $temp_dir/compound_plots.chrX.png $temp_dir/compound_plots.all4.png; 
+		convert -append $temp_dir/compound_plots.all?.png $fig_name");
+}
+
+
+#execCommand("convert -append $temp_dir/compound_plots.chr[1234].png $work_dir/compound_plots1.png;
+#	convert -append $temp_dir/compound_plots.chr[789].png $temp_dir/compound_plots.chr10.png $work_dir/compound_plots2.png;
+#	convert +append $temp_dir/compound_plots.chr1[12].png $temp_dir/compound_plots.all31.png;
+#	convert +append $temp_dir/compound_plots.chr1[34].png $temp_dir/compound_plots.all32.png;
+#	convert +append $temp_dir/compound_plots.chr1[567].png $temp_dir/compound_plots.all33.png;
+#	convert +append $temp_dir/compound_plots.chr1[89].png $temp_dir/compound_plots.chr2[012].png  $temp_dir/compound_plots.all34.png;
+#	convert -append $temp_dir/compound_plots.all3?.png $work_dir/compound_plots3.png;");
 
 
 exit (0) if ($singlestage);
 
 exit;
 
-
-
-MISC:
-
-exit;
 
 
 =comment

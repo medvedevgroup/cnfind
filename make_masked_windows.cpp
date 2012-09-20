@@ -36,7 +36,7 @@ void usage(int argc, char** argv) {
 }
 
 int main (int argc, char** argv) {
-	if (argc != 6) usage(argc, argv);
+	if (argc != 5) usage(argc, argv);
 
 	string masks_filename           = argv[1];
 	int unmaskedSize                = atoi(argv[2]);

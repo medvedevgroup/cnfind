@@ -7,7 +7,8 @@ If a normal sample is available, it is used to assign p-values to each segment a
 
 Running:
 A typical example of a run:
-cnfind.pl --mode all --work_dir "~/my_output_dir" --ref_folder "~/hg19comp" --map_list "~/list_of_bam_files.txt"
+cnfind.pl --mode all --work_dir "~/my_output_dir" --ref_folder "~/hg19comp" --bam_files "~/mappings.bam"
+
 
 Prerequisites:
 ImageMagick needs to be installed.
@@ -17,10 +18,7 @@ The hg19 companion package must be downloaded and unpacked (http://compbio.cs.to
 Input Files:
 The only data needed to run cnfind is one or multiple BAM files.
 The BAM file must contain all the mappings for a given read consecutively.
-TODO The reference names in the BAM file must be in chr10 or 10 
 
-Running:
-TODO explain stages, explain how to run with two samples
 
 Output:
 In the work dir, there will be two files with the results: all.windows and all.segments.
@@ -53,9 +51,6 @@ Note that seused/Wald/pval are always NA if a normal was not provided using the 
 There is also a file compound_plot.png, which plots the LogRatio and the results of the segmentation
 
 
-Plotting:
-TODO
-
 
 ALGORITHM
 
@@ -74,7 +69,21 @@ Read mappings that come from reads with multiple mapping locations are weighed a
 For exapmle, if a read maps to three locations of which one is masked, then it contributed 1/3 to the read depth count at the unmasked locations.
 It does not contribute anything to the masked location.
 
-GC-Normalization:
+GC-correction:
+
+Normalization:
+There are several options for normalization.
+The default option is "genome wide," under which the average read depth ratios over the genome are 1.
+Under the "own_chr" option, every chromosome has an average ratio of 1.
+You may also specify a concrete chromomosome to use for normalization. 
+That way, the average ratios over that chromosome are 1, but the normalization factor used for that chromosome is then applied to all other chromosomes.
+Under the "auto" option, a chromosome is picked automatically. 
+The chromosome where the ratio deviate the least from one.
+
+For every chromosome, cnfind calculates the number 
+Normalization is the calculation of an expected coverage as a function of GC-content.
+For each chromosome, cnfind calculates the root mean squared difference between the read depth at each location and the average read depth.
+The chromosome with the smallest difference is chosen 
 
 Windowing:
 The genome is segmented into non-overlapping windows whose length is controlled via the win_size parameter. 
