@@ -21,7 +21,7 @@ The BAM file must contain all the mappings for a given read consecutively.
 
 
 Output:
-In the work dir, there will be two files with the results: all.windows and all.segments.
+In the work dir, there will be several files with the results:
 
 all.windows:
 This contains a line for every non-overlapping window of the genome.  Each line contains several annotations. The most relevant are:
@@ -47,8 +47,11 @@ Every segment corresponds to a line in this file, with the following annotations
 	Call: -1/0/1, depending on whether pval is lower then the threshold given by the pval parameter to the program
 Note that seused/Wald/pval are always NA if a normal was not provided using the normal_dir parameter. 
 
+all.calls
+This contains the subset of the segments file where the call is non-zero and where adjacent segments with the same call are merged together
 
-There is also a file compound_plot.png, which plots the LogRatio and the results of the segmentation
+all.covplot.png
+A plot of the LogRatios and the results of the segmentation
 
 
 

@@ -32,23 +32,22 @@ CNA.object      <- CNA( genomdat = win[,ratioColumn], chrom = win$Chr, maploc = 
 CNA.smoothed    <- smooth.CNA(CNA.object)
 segsRaw         <- segment(CNA.smoothed, verbose=0, min.width=2)
 segs            <- segsRaw$output
-#segs2          <- subset(segs$output, segs$output$seg.mean != "12.345")
 names(segs)[names(segs) == "chrom"] <- "Chr"
 names(segs)[names(segs) == "loc.start"] <- "Start"
 names(segs)[names(segs) == "loc.end"] <- "End"
 
 #fix loc.end -- this is telling the starting location of the last segment, but we really want the ending location of the last segment
-RealEnd <- sapply(segs$End, function(x) {win$End[win$Start == x]})
-segs$End <- RealEnd
+RealEnd         <- sapply(segs$End, function(x) {win$End[win$Start == x]})
+segs$End        <- RealEnd
 
 if (normse != 0) {
-	normmean         <- 1.0
+	normmean        <- 1.0
 	segs$seused     <- normse / sqrt(segs$num.mark) 
 	#segs$seused     <- normse / sqrt((segs$End - segs$Start) / 1000000)
     segs$Wald       <- ((2^segs$seg.mean) - normmean) / segs$seused
     segs$pval       <- 2 * pnorm(-abs(segs$Wald))
     segs$Call       <- segs$Wald / abs(segs$Wald)
-	segs$Call[segs$pval > pvalCutoff] = 0
+	segs$Call[segs$pval > pvalCutoff] <- 0
 	segs$seused     <- format(segs$seused, digits=3)
 	segs$pval       <- format(segs$pval, digits=3)
 	segs$Wald       <- format(segs$Wald, digits=3)
@@ -62,7 +61,21 @@ if (normse != 0) {
 }
 
 segs$Chr        <- chr
-#options(scipen=3) 
+
+#add rmse collumn
+temp_rmse <- c()
+for (i in 1:nrow(segs)) {
+	st <- segs[i,]$Start
+	en   <- segs[i,]$End
+	ratmean <- 2 ^ segs[i,]$seg.mean
+	nummark <- segs[i,]$num.mark
+	this_rmse <- sqrt(sum(((win$Ratio[win$End <= en & win$Start >= st]) - ratmean) ^ 2) / nummark)
+	temp_rmse <- c(temp_rmse, this_rmse)
+}
+segs$rmse <- format(temp_rmse, digits=3)
+
+
+
 write.table(segs, outputName, sep='\t', quote=F, row.names=F)
 
 

@@ -31,20 +31,17 @@ numFiles       <- (length(args) - basicArgs ) / 3
 
 outputPlotName <- paste(outBase, ".png", sep='')
 png(outputPlotName, width=as.integer(pixel_width), height=400)
-colors         <- c("green", "cyan", "orange", "pink", "blue", "red" )
 
-if (numFiles == 1) {
-	colors <- c("black")
-}
 
+ColName        <- "LogRatio"
 #plot first doc 
 inputName      <- args[basicArgs + 1]
 inputSample    <- args[basicArgs + 2 ]
-inputColName   <- args[basicArgs + 3 ]
+inputCol       <- args[basicArgs + 3 ]
 names          <- c(inputSample)
+cols           <- c(inputCol)
 tbl            <- read.table(inputName,header=T)
-#plot(tbl$Start, tbl[,inputColName], col="black", xlab = chr, ylab = "LogRatio", ylim = c(-1,1))
-plot(tbl$Start, tbl[,inputColName], col=colors[1], xlab = chr, ylab = "LogRatio", ylim = c(-2,2))
+plot(tbl$Start, tbl[,ColName], col=inputCol, xlab = chr, ylab = "LogRatio", ylim = c(-2,2))
 curFile <- 2
 
 #plot segment track
@@ -55,7 +52,7 @@ if (segmentsFile != "nosegments") {
 	losses         <- segs$Call < 0
 	neutral        <- segs$Call == 0
 	#segs$seg.mean  <- segs$seg.mean - 1
-	#points(tbl$Start, tbl[,inputColName] - 1, col="gray") #plots the gray points of the first segment, dup
+	#points(tbl$Start, tbl[,ColName] - 1, col="gray") #plots the gray points of the first segment, dup
 	segments(segs$Start[gains],   segs$seg.mean[gains],   segs$End[gains],   segs$seg.mean[gains],   col="blue",  lwd=3)
 	segments(segs$Start[losses],  segs$seg.mean[losses],  segs$End[losses],  segs$seg.mean[losses],  col="red",   lwd=3)
 	segments(segs$Start[neutral], segs$seg.mean[neutral], segs$End[neutral], segs$seg.mean[neutral], col="black", lwd=3)
@@ -117,13 +114,14 @@ if (callsFile50 != "nocalls") {
 while (curFile <= numFiles) {
 	inputName    <- args[basicArgs - 2 + curFile * 3 ]
 	inputSample  <- args[basicArgs - 1 + curFile * 3 ]
-	inputColName <- args[basicArgs - 0 + curFile * 3 ]
+	inputCol     <- args[basicArgs - 0 + curFile * 3 ]
 	names        <- c(names, inputSample)
+	cols         <- c(cols, inputCol)
 	tbl          <- read.table(inputName,header=T)
-	points(tbl$Start, tbl[,inputColName], col=colors[curFile])
+	points(tbl$Start, tbl[,ColName], col=inputCol)
 
 	curFile <- curFile + 1
 }
 
 
-legend(x="topright", legend=names, col=colors, text.col=colors, pch=1 )
+legend(x="topright", legend=names, col=cols, text.col=cols, pch=1 )
