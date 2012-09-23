@@ -9,6 +9,7 @@ my $alt_base = "~/data/thayer/";
 
 
 my $project_file = $ARGV[0];
+(-e $project_file) or die("Project file \"$project_file\" not found\n");
 
 
 my @colors = ("green", "cyan", "orange", "pink");

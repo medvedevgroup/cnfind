@@ -138,7 +138,7 @@ sub checkExists {
 }
 
 sub setFileNames {
-	my ($chr) = @_;
+	my ($chr, @tryAlt) = @_;
 	mkpath("$work_dir/$chr");
 	$chr_len              = `cat $chr_len_file | awk '{ if (\$1 == "$chr") print \$2; }'`;
 	$mask_file            = "$ref_folder/gem_mappability/$masks_prefix/$chr.mask";
@@ -148,19 +148,30 @@ sub setFileNames {
 	$exp_file             = "$work_dir/$chr/$chr.exp"; 
 	$win_file             = "$work_dir/$chr/$chr.win"; 
 	$plot_file_base       = "$work_dir/$chr/$chr.covplot";
-	if (!(-e $scov_file) && defined($alt_work_dir)) {
-		$scov_file = "$alt_work_dir/$chr/$chr.scov";
-	}
-	if (!(-e $exp_file) && defined($alt_work_dir)) {
-		$exp_file = "$alt_work_dir/$chr/$chr.exp";
-	}
-	if (!(-e $rmap_file) && defined($alt_work_dir)) {
-		$rmap_file = "$alt_work_dir/mapping_files/$chr.rmap";
-	}
-	if (!(-e $win_file) && defined($alt_work_dir)) {
-		$win_file = "$alt_work_dir/$chr/$chr.win";
+	foreach my $extension (@tryAlt) {
+		if ($extension eq "scov") {
+			if (!(-e $scov_file) && defined($alt_work_dir)) {
+				$scov_file = "$alt_work_dir/$chr/$chr.scov";
+			}
+		}
+		if ($extension eq "exp") {
+			if (!(-e $exp_file) && defined($alt_work_dir)) {
+				$exp_file = "$alt_work_dir/$chr/$chr.exp";
+			}
+		}
+		if ($extension eq "rmap") {
+			if (!(-e $rmap_file) && defined($alt_work_dir)) {
+				$rmap_file = "$alt_work_dir/mapping_files/$chr.rmap";
+			}
+		}
+		if ($extension eq "win") {
+			if (!(-e $win_file) && defined($alt_work_dir)) {
+				$win_file = "$alt_work_dir/$chr/$chr.win";
+			}
+		}
 	}
 }
+
 
 sub usage{
 	die("Cnfind usage: 
@@ -184,7 +195,7 @@ sub usage{
 		\t--normal_dir: distribution to use for calculation pvals for calls
 		\t--minlogratio: when normal_dir is not specified, the minimum logratio to consider normal
 		\t--maxlogratio: the maximum ratio to consider normal
-		\t--male: expect half the coverage on chrX (not yet supported)
+		\t--male: expect half the coverage on chrX and coverage on chrY (not yet supported)
 		Special options for ploting:
 		\t--calls2plot : callfile to plot
 		\t--cgh_file: for plotting cgh data (not currently supported)
@@ -259,7 +270,10 @@ $all_chromosomes_file = checkExists("$ref_folder/allchr.txt", "file");
 open(CHR_NAMES, $all_chromosomes_file);
 while (<CHR_NAMES>) {
 	chomp;
-	push(@all_chroms, $_);
+	my $locChr = $_;
+	if ($male || ($locChr ne "chrY")) {
+		push(@all_chroms, $locChr);
+	}
 }
 close(CHR_NAMES);
 
@@ -327,7 +341,7 @@ exit (0) if ($singlestage);
 ####################################
 STAGE2:
 foreach $chr (@working_chroms) { 
-	setFileNames($chr);
+	setFileNames($chr, "rmap");
 
 	checkExists($rmap_file, "file");
 
@@ -351,14 +365,13 @@ exit (0) if ($singlestage);
 ####################################
 MAKE_GCBINS:
 foreach $chr (@working_chroms) { 
-	setFileNames($chr);
+	setFileNames($chr, "scov");
+	checkExists($scov_file, "file");
 	checkExists($mask_file, "file");
+	checkExists($fasta_file, "file");
 	if ($nogc) {
 		$fasta_file = "$ref_folder/fasta_files_folder/random/$chr.fa";
 	}
-
-	checkExists($scov_file, "file");
-	checkExists($fasta_file, "file");
 
 	execCommand("$exec_folder/make_gcbins $fasta_file $mask_file $scov_file $work_dir/$chr/$chr.gcbins $size_gc_win $num_gc_bins", $par);
 }
@@ -372,13 +385,13 @@ exit (0) if ($singlestage);
 ####################################
 GET_RMSE:
 foreach $chr (@working_chroms) { 
-	setFileNames($chr);
+	setFileNames($chr, "scov");
+	checkExists($scov_file, "file");
 	checkExists($mask_file, "file");
+	checkExists($fasta_file, "file");
 	if ($nogc) {
 		$fasta_file = "$ref_folder/fasta_files_folder/random/$chr.fa";
 	}
-	checkExists($fasta_file, "file");
-	checkExists($scov_file, "file");
 
 	my $gcbins_file = "$work_dir/$chr/$chr.gcbins";
 	if (defined($gcbins)) {
@@ -481,7 +494,7 @@ exit (0) if ($singlestage);
 ####################################
 MAKE_WIN:
 foreach $chr (@working_chroms) { 
-	setFileNames($chr);
+	setFileNames($chr, "exp", "scov");
 	checkExists($exp_file, "file");
 	checkExists($mask_file, "file");
 	checkExists($scov_file, "file");
@@ -509,7 +522,8 @@ if (defined($normal_dir)) {
 }
 
 foreach $chr (@working_chroms) { 
-	setFileNames($chr);
+	setFileNames($chr, "win");
+	checkExists($win_file, "file");
 	execCommand("cat $win_file |  awk '{ if (\$2 != last + 1) curchr++;  if (\$1 != \"Chr\") \$1 = \"sub\" curchr; last = \$3; print \$0; }' | tr ' ' '\\t' > $win_file.forsegment", 0); 
 	execCommand("$Rfolder/Rscript $exec_folder/segment.R $normal_sd $pval  $win_file.forsegment $work_dir/$chr/$chr.segments $chr LogRatio $minlogratio $maxlogratio", $par );
 }

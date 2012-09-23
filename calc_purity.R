@@ -17,10 +17,9 @@
 #
 
 args            <- commandArgs(TRUE)
-#f               <- file("stdin")
-inputName<-args[1]
+inputName       <- args[1]
 win             <- read.table(inputName, header = T)
-observed <- win$RawRatio
+observed        <- win$Ratio
 
 myerr           <- function(purity) { 
 	truth <- (observed - 1 + purity ) / purity
