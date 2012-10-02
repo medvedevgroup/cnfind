@@ -37,6 +37,7 @@ names(segs)[names(segs) == "loc.start"] <- "Start"
 names(segs)[names(segs) == "loc.end"] <- "End"
 
 #fix loc.end -- this is telling the starting location of the last segment, but we really want the ending location of the last segment
+LastMarker      <- segs$End
 RealEnd         <- sapply(segs$End, function(x) {win$End[win$Start == x]})
 segs$End        <- RealEnd
 
@@ -73,6 +74,7 @@ for (i in 1:nrow(segs)) {
 	temp_rmse <- c(temp_rmse, this_rmse)
 }
 segs$rmse <- format(temp_rmse, digits=3)
+segs$LastMarker <- LastMarker
 
 
 
