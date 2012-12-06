@@ -28,6 +28,8 @@ minCutoff       <- as.numeric(args[7])
 maxCutoff       <- as.numeric(args[8])
 
 win             <- read.table(inputName,header=T)
+
+
 CNA.object      <- CNA( genomdat = win[,ratioColumn], chrom = win$Chr, maploc = win$Start, data.type = 'logratio')
 CNA.smoothed    <- smooth.CNA(CNA.object)
 segsRaw         <- segment(CNA.smoothed, verbose=0, min.width=2)
@@ -45,9 +47,9 @@ if (normse != 0) {
 	normmean        <- 1.0
 	segs$seused     <- normse / sqrt(segs$num.mark) 
 	#segs$seused     <- normse / sqrt((segs$End - segs$Start) / 1000000)
-    segs$Wald       <- ((2^segs$seg.mean) - normmean) / segs$seused
-    segs$pval       <- 2 * pnorm(-abs(segs$Wald))
-    segs$Call       <- segs$Wald / abs(segs$Wald)
+	segs$Wald       <- ((2^segs$seg.mean) - normmean) / segs$seused
+	segs$pval       <- 2 * pnorm(-abs(segs$Wald))
+	segs$Call       <- segs$Wald / abs(segs$Wald)
 	segs$Call[segs$pval > pvalCutoff] <- 0
 	segs$seused     <- format(segs$seused, digits=3)
 	segs$pval       <- format(segs$pval, digits=3)

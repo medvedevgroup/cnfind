@@ -20,7 +20,7 @@ args            <- commandArgs(TRUE)
 inputName       <- args[1]
 outBase         <- args[2]
 win             <- read.table(inputName, header = T)
-observed        <- win$Ratio
+observed        <- win$rOsEs
 
 myerr           <- function(purity) { 
 	truth <- (observed - 1 + purity ) / purity

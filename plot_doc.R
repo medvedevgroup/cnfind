@@ -22,10 +22,11 @@ pixel_width    <- args[2]
 outBase        <- args[3]
 snpFile        <- args[4] #set to nosnps to not plot snps
 segmentsFile   <- args[5] #set to nocalls to not plot calls
-callsFile1     <- args[6] #set to nocalls to not plot calls
+firstbuffy     <- args[6] #set to use lrOsEs for first sample 
 callsFile10    <- args[7] #set to nocalls to not plot calls
 callsFile50    <- args[8] #set to nocalls to not plot calls
-basicArgs      <- 8
+ColName        <- args[9]
+basicArgs      <- 9
 
 numFiles       <- (length(args) - basicArgs ) / 3
 
@@ -33,7 +34,6 @@ outputPlotName <- paste(outBase, ".png", sep='')
 png(outputPlotName, width=as.integer(pixel_width), height=400)
 
 
-ColName        <- "LogRatio"
 #plot first doc 
 inputName      <- args[basicArgs + 1]
 inputSample    <- args[basicArgs + 2 ]
@@ -41,7 +41,12 @@ inputCol       <- args[basicArgs + 3 ]
 names          <- c(inputSample)
 cols           <- c(inputCol)
 tbl            <- read.table(inputName,header=T)
-plot(tbl$Start, tbl[,ColName], col=inputCol, xlab = chr, ylab = "LogRatio", ylim = c(-2,2))
+firstColName = ColName
+if (firstbuffy == 1) {
+	firstColName = "lrOsEs"
+} 
+
+plot(tbl$Start, tbl[,firstColName], col=inputCol, xlab = chr, ylab = "LogRatio", ylim = c(-2,2))
 curFile <- 2
 
 #plot segment track
@@ -72,18 +77,6 @@ if (snpFile != "nosnps") {
 	attach(snps) #we get contig, position, bfreq
 	ourChr <- contig == chr #index set that identifies points of interest to our chr
 	points(position[ourChr], bfreq[ourChr]  - 2, col="black")
-}
-
-if (callsFile1 != "nocalls") {
-	calls     <- read.table(callsFile1, header=T)
-	lossCalls <- calls$Call < 0
-	gainCalls <- calls$Call > 0
-
-	yvals     <- rep(-1.8, length(calls$Start[lossCalls]))
-	segments(calls$Start[lossCalls], yvals, calls$End[lossCalls], yvals, col="red", lwd=2)
-
-	yvals     <- rep(-1.8, length(calls$Start[gainCalls]))
-	segments(calls$Start[gainCalls], yvals, calls$End[gainCalls], yvals, col="blue", lwd=2)
 }
 
 if (callsFile10 != "nocalls") {

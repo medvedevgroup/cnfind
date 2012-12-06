@@ -66,7 +66,8 @@ my $window_size = 1000000;
 my $minlogratio = 0;
 my $maxlogratio = 1000000;
 my @working_chroms;
-my $normalization = "gw";
+my $normalization = "self";
+my $expectedCalc = "gw";
 my $chr_len_file;
 my $chr_len;          
 my $mask_file;         
@@ -75,6 +76,7 @@ my $exp_file;
 my $win_file;       
 my $fasta_file;    
 my $rmap_file;
+my $firstbuffy = 0;
 
 
 sub getTime{
@@ -172,7 +174,6 @@ sub setFileNames {
 	}
 }
 
-
 sub usage{
 	die("Cnfind usage: 
 Mandatory options:
@@ -187,12 +188,13 @@ General options:
 \t--masks: prefix of masking files (def: 76mer)
 \t--chr_format: \"auto\", \"short\", or \"long\". Specifices whether ref names in BAM are given as \"chr10\" (long) or \"10\" (short). (valid for stage1 only) (def: auto)
 Normalization and segmentation options:
-\t--normalization: \"auto\" or \"own_chr\" or \"chr*\" or \"gw\"(def: gw)
+\t--expectedCalc: \"auto\" or \"own_chr\" or \"chr*\" or \"gw\" (def: gw)
+\t--normalization: \"self\" or \"normalPreGC\" or \"normalPostGC\" (def: self)
+\t--normal_dir: distribution to use for calculation pvals for calls and/or normalization
 \t--num_gc_bins: number of bins to use for gc correction (def: 40)
 \t--win_size: size of windows to be used (def: 1mil)
 Calling options:
 \t--pval: desired significance level for calls (def: 0.05)
-\t--normal_dir: distribution to use for calculation pvals for calls
 \t--minlogratio: when normal_dir is not specified, the minimum logratio to consider normal
 \t--maxlogratio: the maximum ratio to consider normal
 \t--male: expect half the coverage on chrX and coverage on chrY (not yet supported)
@@ -208,6 +210,7 @@ Non-supported internal debugging options (they do not work as intended so do not
 \t--nogc: disable gc correction 
 \t--gcbins: file to use for gcbins instead of generating a new one 
 \t--alt_work_dir: take input files needed for stage from an alternate directory
+\t--firstbuffy: first entry in samples (for plotting) is buffy and the lrOsEs should be used
 Please see README for mode details
 \n");}
 
@@ -243,7 +246,9 @@ GetOptions (
 	'male' => \$male, 
 	'win_size=i' => \$window_size, 
 	'singlestage' => \$singlestage, 
-	'normalization=s' => \$normalization
+	'expectedCalc=s' => \$expectedCalc,
+	'normalization=s' => \$normalization,
+	'firstbuffy' => \$firstbuffy
 ) or usage();
 
 open ( LOGFILE, ">>log.txt") or die ("$0 : failed to open log file for output: $!\n");
@@ -299,6 +304,8 @@ if ($mode eq "all") {
 	goto RENORMALIZE;
 } elsif ($mode eq "make_win") {
 	goto MAKE_WIN;
+} elsif ($mode eq "annot2_win") {
+	goto ANNOT2_WIN;
 } elsif ($mode eq "segment") {
 	goto SEGMENT;
 } elsif ($mode eq "plot_doc") {
@@ -420,7 +427,7 @@ exit (0) if ($singlestage);
 ####################################
 RENORMALIZE:
 my $best_chr;
-if ($normalization eq "auto") {
+if ($expectedCalc eq "auto") {
 	print STDERR "Error: auto normalization currently disabled!\n";
 	exit(1);
 
@@ -435,7 +442,7 @@ if ($normalization eq "auto") {
 			$best_chr = $chr;
 		}
 	}
-} elsif ($normalization eq "gw") {
+} elsif ($expectedCalc eq "gw") {
 	#take the gcbins for each chr and average the labmdas to get all.gcbins
 	#just to be safe, only use the autosomes
 	my @tothits;
@@ -479,16 +486,17 @@ if ($normalization eq "auto") {
 foreach $chr (@working_chroms) { 
 	setFileNames($chr);
 	my $gcbins_file;
-	if ($normalization eq "own_chr") {
-		$gcbins_file = checkExists("$work_dir/$chr/$chr.gcbins", "file");
-	} elsif ($normalization eq "auto") {
+	if ($expectedCalc eq "auto") {
 		$gcbins_file = checkExists("$work_dir/$best_chr/$best_chr.gcbins", "file");
-	} elsif ($normalization eq "gw") {
+	} elsif ($expectedCalc eq "gw") {
 		$gcbins_file = checkExists("$work_dir/all.gcbins", "file");
-	} elsif ($normalization =~ /^chr[0-9XY]/) {
-		$gcbins_file = checkExists("$work_dir/$normalization/$normalization.gcbins", "file");
+	} elsif ($expectedCalc =~ /^chr[0-9XY]/) {
+		$gcbins_file = checkExists("$work_dir/$expectedCalc/$expectedCalc.gcbins", "file");
+	} else {
+		$gcbins_file = checkExists("$work_dir/$chr/$chr.gcbins", "file");
 	}
-	`echo $normalization > $work_dir/$chr/$chr.normalization`;
+
+	`echo $expectedCalc > $work_dir/$chr/$chr.expectedCalc`;
 	execCommand("$exec_folder/make_exp $fasta_file $mask_file $scov_file $gcbins_file $size_gc_win $num_gc_bins $exp_file", $par);
 }
 
@@ -503,17 +511,78 @@ exit (0) if ($singlestage);
 ####################################
 MAKE_WIN:
 foreach $chr (@working_chroms) { 
-	setFileNames($chr, "exp", "scov");
-	checkExists($exp_file, "file");
+	setFileNames($chr); 
 	checkExists($mask_file, "file");
-	checkExists($scov_file, "file");
 
 	my $max_total_window_size = 1.5 * $window_size;
-	execCommand("$exec_folder/make_masked_windows $mask_file $window_size $max_total_window_size $chr | $exec_folder/doc_walker $scov_file $exp_file full | $exec_folder/gcContent $ref_folder/fasta_files_folder/$chr.fa | awk '{ print \$1, \$2, \$3, log(\$5) / log(2), \$5, \$7, \$9, \$11, \$13, \$14 }' | $exec_folder/add_first_line \"Chr Start End LogRatio Ratio Observed Expected Masked ObservedFull GC\" | tr ' ' '\\t' > $win_file", $par);
+	
+	#execCommand("$exec_folder/make_masked_windows $mask_file $window_size $max_total_window_size $chr | $exec_folder/doc_walker $scov_file $exp_file full | $exec_folder/gcContent $ref_folder/fasta_files_folder/$chr.fa | awk '{ print \$1, \$2, \$3, log(\$5) / log(2), \$5, \$7, \$9, \$11, \$13, \$14 }' | $exec_folder/add_first_line \"Chr Start End LogRatio Ratio Observed Expected Masked ObservedFull GC\" | tr ' ' '\\t' > $win_file", $par);
+
+	execCommand("$exec_folder/make_masked_windows $mask_file $window_size $max_total_window_size $chr  > $win_file.1");
 }
 
 reconvene();
+execCommand("cat $work_dir/chr*/chr*.win.1 | sort -k1,1 -k2n,2 | uniq > $work_dir/all.win.1", 0);
 exit (0) if ($singlestage);
+
+####################################
+###   ANNOT_WIN1                 ###
+###   Files used:                ###
+###   Files created:             ###
+####################################
+
+ANNOT1_WIN:
+foreach $chr (@working_chroms) { 
+	#setFileNames($chr, "win.1");
+	setFileNames($chr, "exp", "scov");
+
+	checkExists("$win_file.1", "file");
+	checkExists($exp_file, "file");
+	checkExists($scov_file, "file");
+
+	execCommand("cat $win_file.1 | $exec_folder/doc_walker $scov_file $exp_file full | $exec_folder/gcContent $ref_folder/fasta_files_folder/$chr.fa | $Rfolder/Rscript $exec_folder/annot1_win.R  $win_file.2", $par);
+
+}
+
+reconvene();
+execCommand("cat $work_dir/chr*/chr*.win.2 | sort -k1,1 -k2n,2 | uniq > $work_dir/all.win.2", 0);
+exit (0) if ($singlestage);
+
+
+
+####################################
+###   ANNOT_WIN2                 ###
+###   Files used:                ###
+###   Files created:             ###
+####################################
+
+ANNOT2_WIN:
+
+my $sam2normScaling = 1; 
+my $normal_win  = "nonorm";
+if (defined($normal_dir)) {
+	$normal_win  = "$normal_dir/all.windows";
+
+	#my $sampleWins = "$work_dir/chr*/chr*.win.2"; if (!(-e "$work_dir/chr1/chr1.win.2") && defined($alt_work_dir)) { $sampleWins = "$alt_work_dir/chr*/chr*.win.2"; }
+
+	my $sampleWins = "$work_dir/all.win.2";
+	my $sampleObs = `cat $sampleWins | sort -k1,1 -k2n,2 | uniq | $Rfolder/Rscript $exec_folder/get_mean_sd.R Observed | $exec_folder/item 1`;
+	my $normObs   = `cat $normal_win                            | $Rfolder/Rscript $exec_folder/get_mean_sd.R Observed | $exec_folder/item 1`;
+	$sam2normScaling = $sampleObs / $normObs;
+}
+
+foreach $chr (@working_chroms) { 
+	setFileNames($chr);
+	checkExists("$win_file.2", "file");
+
+	execCommand("cat $win_file.2 | $Rfolder/Rscript $exec_folder/annot2_win.R  $normal_win $sam2normScaling $win_file.3", $par);
+	`ln -fs $win_file.3 $win_file`
+}
+
+reconvene();
+execCommand("cat $work_dir/chr*/chr*.win.3 | sort -k1,1 -k2n,2 | uniq > $work_dir/all.win.3", 0);
+exit (0) if ($singlestage);
+
 
 
 ####################################
@@ -523,25 +592,31 @@ exit (0) if ($singlestage);
 ####################################
 
 SEGMENT:
-
-if (defined($normal_dir)) {
-	my $normal_win1  = "$normal_dir/all.windows";
-	$normal_sd   = `cat $normal_win1 | $Rfolder/Rscript $exec_folder/get_mean_sd.R Ratio | $exec_folder/item 2`; 
-	chomp $normal_sd;
-}
-
 foreach $chr (@working_chroms) { 
 	setFileNames($chr, "win");
-	checkExists($win_file, "file");
-	execCommand("cat $win_file |  awk '{ if (\$2 != last + 1) curchr++;  if (\$1 != \"Chr\") \$1 = \"sub\" curchr; last = \$3; print \$0; }' | tr ' ' '\\t' > $win_file.forsegment", 0); 
-	execCommand("$Rfolder/Rscript $exec_folder/segment.R $normal_sd $pval  $win_file.forsegment $work_dir/$chr/$chr.segments $chr LogRatio $minlogratio $maxlogratio", $par );
+	checkExists("$win_file.3", "file");
+
+	my $lrCol;
+	if ($normalization eq "normalPreGC") {
+		$lrCol = "lrOsOn";
+	} elsif ($normalization eq "normalPostGC") {
+		$lrCol = "lrRsRn";
+	} else {
+		$lrCol = "lrOsEs";
+	}
+
+	if (defined($normal_dir)) {
+		$normal_win  = "$normal_dir/all.windows";
+		$normal_sd   = `cat $normal_win | $Rfolder/Rscript $exec_folder/get_mean_sd.R rOsEs | $exec_folder/item 2`; 
+		chomp $normal_sd;
+	}
+	execCommand("cat $win_file.3 |  awk '{ if (\$2 != last + 1) curchr++;  if (\$1 != \"Chr\") \$1 = \"sub\" curchr; last = \$3; print \$0; }' | tr ' ' '\\t' > $win_file.forsegment", 0); 
+	execCommand("$Rfolder/Rscript $exec_folder/segment.R $normal_sd $pval  $win_file.forsegment $work_dir/$chr/$chr.segments $chr $lrCol $minlogratio $maxlogratio ", $par );
+	`echo $normalization > $work_dir/$chr/$chr.normalization`;
 }
 
 reconvene();
 exit (0) if ($singlestage);
-
-
-
 
 
 ####################################
@@ -553,7 +628,7 @@ COLLECT:
 
 `rm -f $work_dir/summary.txt`;
 
-execCommand("cat $work_dir/chr*/chr*.win | sort -k1,1 -k2n,2 | uniq > $work_dir/all.windows", 0);
+execCommand("cat $work_dir/chr*/chr*.win.3 | sort -k1,1 -k2n,2 | uniq > $work_dir/all.windows", 0);
 execCommand("$Rfolder/Rscript $exec_folder/calc_purity.R $work_dir/all.windows $work_dir/all >> $work_dir/summary.txt");
 my $purity = `cat $work_dir/summary.txt | grep purity_estimate | $exec_folder/item 2`;
 chomp $purity;
@@ -574,6 +649,17 @@ exit (0) if ($singlestage);
 ###   Files created:             ###
 ####################################
 PLOT_DOC:
+
+my $lrCol;
+if ($normalization eq "normalPreGC") {
+	$lrCol = "lrOsOn";
+} elsif ($normalization eq "normalPostGC") {
+	$lrCol = "lrRsRn";
+} else {
+	$lrCol = "lrOsEs";
+}
+
+
 
 if (!defined($samples2plot)) {
 	defined($work_dir) || die("For mode plot_doc, either samples or work_dir needs to be specified");
@@ -613,7 +699,7 @@ foreach $chr (@working_chroms) {
 	}
 
 	my $plot_file_base = "$temp_dir/$chr.covplot";
-	execCommand("$Rfolder/Rscript $exec_folder/plot_doc.R $chr $pixel_width $plot_file_base $snp_file $segment_file nocalls nocalls $call_file50 $whatever\n", $par);
+	execCommand("$Rfolder/Rscript $exec_folder/plot_doc.R $chr $pixel_width $plot_file_base $snp_file $segment_file $firstbuffy nocalls $call_file50 $lrCol $whatever \n", $par);
 }
 reconvene();
 

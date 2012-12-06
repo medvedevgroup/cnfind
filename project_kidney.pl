@@ -1,9 +1,14 @@
 #!/usr/bin/perl
 use strict;
 
-my $starting_mode = "collect";
-my $normalization = "chr10";
-my $work_base = "~/data/kidney";
+my $starting_mode = "make_win";
+my $normalization = "normal";
+my $work_base = "~/data/kidney/norm2norm";
+my $alt_work_dir = "~/data/kidney/";
+
+#my $starting_mode = "collect";
+#my $normalization = "chr10";
+#my $work_base = "~/data/kidney";
 
 
 
@@ -35,13 +40,13 @@ my $metName     = $info[1];
 my $priBam = $info[0];
 my $priName     = $info[1];
 
-print "cnfind.pl --work_dir $work_base/$bufName --mode $starting_mode --bam_files $bufBam --normalization own_chr --minlogratio -0.15 --maxlogratio 0.15 --par \n";
-print "cnfind.pl --work_dir $work_base/$cfName  --mode $starting_mode --bam_files $cfBam  --normalization $normalization --pval 1e-10 --normal_dir $work_base/$bufName/ --par \n";
+print "cnfind.pl --alt_work_dir $alt_work_dir/$bufName --work_dir $work_base/$bufName --mode $starting_mode --bam_files $bufBam --normalization own_chr --minlogratio -0.15 --maxlogratio 0.15 --par \n";
+print "cnfind.pl --alt_work_dir $alt_work_dir/$cfName  --work_dir $work_base/$cfName  --mode $starting_mode --bam_files $cfBam  --normalization $normalization --pval 1e-10 --normal_dir $work_base/$bufName/ --par \n";
 for (my $i = 2; $i < @samples; $i++) {
 	my @info = split / /, $samples[$i];
 	my $bam = $info[0];
 	my $name     = $info[1];
-	print "cnfind.pl --work_dir $work_base/$name --mode $starting_mode --bam_files $bam --normalization $normalization --minlogratio -0.15 --maxlogratio 0.15 --par \n";
+	print "cnfind.pl --alt_work_dir $alt_work_dir/$name --work_dir $work_base/$name --mode $starting_mode --bam_files $bam --normalization $normalization --minlogratio -0.15 --maxlogratio 0.15 --par \n";
 }
 
 
