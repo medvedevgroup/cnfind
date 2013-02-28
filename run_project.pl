@@ -1,11 +1,12 @@
 #!/usr/bin/perl
 use strict;
 
-#Use this script when needing to run cnfind on multiple samples from the same individual. It will make figures.
+#Use this script when needing to run cnfind on multiple samples from the same individual. It will streamline the process 
 #The script does not run anything but prints a series of commands which you can then pipe to sh or run in parallel as need be
 #The project file (first argument) contains in each row a bam file and its "name"
 #The first line is treated as the normal
-#The second argument is the output directory
+#The second argument is the project output directory, which will contain subdirectories for every sample output 
+#The script will make several figures in the project output directory 
 
 my $project_file = $ARGV[0];
 my $work_base = $ARGV[1];
@@ -14,11 +15,12 @@ my $work_base = $ARGV[1];
 
 my $alt_work_dir;
 my $singlestage;
+my $normal_dir;
 
 
 my $starting_mode = "stage1";
 my $expectedCalc = "gw";
-my $normalization = "self";  
+my $normalization = "normalPreGC";  
 my $win_size = 10000;
 
 $alt_work_dir = "--alt_work_dir $work_base";
@@ -50,30 +52,27 @@ if ($starting_mode eq "stage1") {
 		print "cnfind.pl $alt_work_dir/$name --work_dir $work_base/$name --mode $starting_mode --bam_files $bam --normalization $normalization --expectedCalc $expectedCalc --par --win_size $win_size --pval 1e-10 --singlestage & \n";
 	}
 	print "cnfind.pl $alt_work_dir/$normName --work_dir $work_base/$normName --mode $starting_mode --bam_files $normBam --normalization self --expectedCalc $expectedCalc --par --win_size $win_size --minlogratio -0.15 --maxlogratio 0.15\n";
+	$starting_mode = "annot2_win";
+
+} else {
+	# need to just run the normal all the way through
+	print "cnfind.pl $alt_work_dir/$normName --work_dir $work_base/$normName --mode $starting_mode --bam_files $normBam --normalization self --expectedCalc $expectedCalc --par --win_size $win_size --minlogratio -0.15 --maxlogratio 0.15 $singlestage\n";
 }
-
-
-if ($starting_mode eq "stage1") {
-	$starting_mode = "stage2";
-}
-
-#first run normal 
-print "cnfind.pl $alt_work_dir/$normName --work_dir $work_base/$normName --mode $starting_mode --bam_files $normBam --normalization self --expectedCalc $expectedCalc --par --win_size $win_size --minlogratio -0.15 --maxlogratio 0.15 $singlestage\n";
 
 #next run the rest of the samples
+
+my $normal_dir = "--normal_dir $work_base/$normName";
 my $tum_files;
 for (my $i = 1; $i < @samples; $i++) {
 	my @info = split / /, $samples[$i];
 	my $bam = $info[0];
 	my $name     = $info[1];
 	$tum_files .= "$work_base/$name $name $colors[$i] ";
-	print "cnfind.pl $alt_work_dir/$name --work_dir $work_base/$name --mode $starting_mode --bam_files $bam --normalization $normalization --expectedCalc $expectedCalc --par --win_size $win_size --pval 1e-10 $singlestage\n";
+	print "cnfind.pl $alt_work_dir/$name --work_dir $work_base/$name --mode $starting_mode --bam_files $bam $normal_dir --normalization $normalization --expectedCalc $expectedCalc --par --win_size $win_size --pval 1e-10 $singlestage\n";
 }
 
-#TODO plots
 #combined plots
 print "cnfind.pl --mode plot_doc --fig_name $work_base/all_nocalls.png --samples \"$work_base/$normName $normName $colors[0] $tum_files\"\n";
-print "cnfind.pl --mode plot_doc --fig_name $work_base/all_nobuffy.png --samples \"$tum_files\"\n";
 print "cnfind.pl --mode plot_doc --fig_name $work_base/tums_nocalls.png --samples \"$tum_files\" \n";
 
 print "cnfind.pl --mode plot_doc --fig_name $work_base/$normName.png --samples \"$work_base/$normName $normName $colors[0]\" --work_dir $work_base/$normName\n";
