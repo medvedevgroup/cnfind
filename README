@@ -14,8 +14,8 @@ If you have a project with multiple samples but a shared normal, use run_project
 Prerequisites:
 ImageMagick needs to be installed for making figures.
 R needs to be installed.
-The hg19 companion package must be downloaded and unpacked (http://compbio.cs.toronto.edu/cnver/hg19comp.tar.gz).
-If using hg18, download http://compbio.cs.toronto.edu/cnver/hg18comp.tar.gz.
+You must have the latest hg19 (or hg18) companion package, which are available on cyberstar in /gpfs/cyberstar/pzm11/nobackup/pzm11/hg1?com/ or at OHSU on /home/groups/atlas/pmedvedev/hg1?comp/
+
 
 Input Files:
 The only data needed to run cnfind is one or multiple BAM files.
