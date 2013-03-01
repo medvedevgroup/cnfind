@@ -21,8 +21,9 @@ my $normal_dir;
 my $starting_mode = "stage1";
 my $expectedCalc = "gw";
 my $normalization = "normalPreGC";  
+#my $ref_folder = "/home/groups/atlas/pmedvedev/hg18comp"; 
+my $ref_folder = "/home/groups/atlas/pmedvedev/hg19comp";
 my $win_size = 10000;
-
 $alt_work_dir = "--alt_work_dir $work_base";
 
 #$singlestage = "--singlestage";
@@ -49,14 +50,14 @@ if ($starting_mode eq "stage1") {
 		my @info = split / /, $samples[$i];
 		my $bam = $info[0];
 		my $name     = $info[1];
-		print "cnfind.pl $alt_work_dir/$name --work_dir $work_base/$name --mode $starting_mode --bam_files $bam --normalization $normalization --expectedCalc $expectedCalc --par --win_size $win_size --pval 1e-10 --singlestage & \n";
+		print "cnfind.pl --ref_folder $ref_folder $alt_work_dir/$name --work_dir $work_base/$name --mode $starting_mode --bam_files $bam --normalization $normalization --expectedCalc $expectedCalc --par --win_size $win_size --pval 1e-10 --singlestage & \n";
 	}
-	print "cnfind.pl $alt_work_dir/$normName --work_dir $work_base/$normName --mode $starting_mode --bam_files $normBam --normalization self --expectedCalc $expectedCalc --par --win_size $win_size --minlogratio -0.15 --maxlogratio 0.15\n";
+	print "cnfind.pl  --ref_folder $ref_folder $alt_work_dir/$normName --work_dir $work_base/$normName --mode $starting_mode --bam_files $normBam --normalization self --expectedCalc $expectedCalc --par --win_size $win_size --minlogratio -0.15 --maxlogratio 0.15\n";
 	$starting_mode = "annot2_win";
 
 } else {
 	# need to just run the normal all the way through
-	print "cnfind.pl $alt_work_dir/$normName --work_dir $work_base/$normName --mode $starting_mode --bam_files $normBam --normalization self --expectedCalc $expectedCalc --par --win_size $win_size --minlogratio -0.15 --maxlogratio 0.15 $singlestage\n";
+	print "cnfind.pl  --ref_folder $ref_folder $alt_work_dir/$normName --work_dir $work_base/$normName --mode $starting_mode --bam_files $normBam --normalization self --expectedCalc $expectedCalc --par --win_size $win_size --minlogratio -0.15 --maxlogratio 0.15 $singlestage\n";
 }
 
 #next run the rest of the samples
@@ -68,7 +69,7 @@ for (my $i = 1; $i < @samples; $i++) {
 	my $bam = $info[0];
 	my $name     = $info[1];
 	$tum_files .= "$work_base/$name $name $colors[$i] ";
-	print "cnfind.pl $alt_work_dir/$name --work_dir $work_base/$name --mode $starting_mode --bam_files $bam $normal_dir --normalization $normalization --expectedCalc $expectedCalc --par --win_size $win_size --pval 1e-10 $singlestage\n";
+	print "cnfind.pl  --ref_folder $ref_folder $alt_work_dir/$name --work_dir $work_base/$name --mode $starting_mode --bam_files $bam $normal_dir --normalization $normalization --expectedCalc $expectedCalc --par --win_size $win_size --pval 1e-10 $singlestage\n";
 }
 
 #combined plots

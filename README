@@ -15,6 +15,7 @@ Prerequisites:
 ImageMagick needs to be installed for making figures.
 R needs to be installed.
 The hg19 companion package must be downloaded and unpacked (http://compbio.cs.toronto.edu/cnver/hg19comp.tar.gz).
+If using hg18, download http://compbio.cs.toronto.edu/cnver/hg18comp.tar.gz.
 
 Input Files:
 The only data needed to run cnfind is one or multiple BAM files.
