@@ -26,13 +26,23 @@ chr             <- args[5]
 ratioColumn     <- args[6]
 minCutoff       <- as.numeric(args[7])
 maxCutoff       <- as.numeric(args[8])
+merge_segs      <- as.numeric(args[9])
 
 win             <- read.table(inputName,header=T)
 
 
-CNA.object      <- CNA( genomdat = win[,ratioColumn], chrom = win$Chr, maploc = win$Start, data.type = 'logratio')
+CNA.gdat        <- win[,ratioColumn]
+CNA.object      <- CNA( genomdat = CNA.gdat, chrom = win$Chr, maploc = win$Start, data.type = 'logratio')
 CNA.smoothed    <- smooth.CNA(CNA.object)
-segsRaw         <- segment(CNA.smoothed, verbose=0, min.width=2)
+
+if (merge_segs != 0) {
+	CNA.sd          <- sd(CNA.gdat - append(CNA.gdat[2:length(CNA.gdat)], 0))
+	segsRaw         <- segment(CNA.smoothed, verbose=0, min.width=2, undo.splits="sdundo", undo.SD=0.3*sqrt(2.0)/CNA.sd)
+} else {
+	segsRaw         <- segment(CNA.smoothed, verbose=0, min.width=2)
+
+}
+
 segs            <- segsRaw$output
 names(segs)[names(segs) == "chrom"] <- "Chr"
 names(segs)[names(segs) == "loc.start"] <- "Start"

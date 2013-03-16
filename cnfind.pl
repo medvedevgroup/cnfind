@@ -61,6 +61,7 @@ my $gcbins;
 my $par = 0;
 my $calls2plot;
 my $male = 0;
+my $merge_segs = 0;
 my $normal_dir;
 my $normal_sd = 0;
 my $window_size = 1000000; 
@@ -194,6 +195,7 @@ Normalization and segmentation options:
 \t--normal_dir: distribution to use for calculation pvals for calls and/or normalization
 \t--num_gc_bins: number of bins to use for gc correction (def: 40)
 \t--win_size: size of windows to be used (def: 1mil)
+\t--merge_segs : merge adjacent segments that have similar values
 Calling options:
 \t--pval: desired significance level for calls (def: 0.05)
 \t--minlogratio: when normal_dir is not specified, the minimum logratio to consider normal
@@ -249,6 +251,7 @@ GetOptions (
 	'singlestage' => \$singlestage, 
 	'expectedCalc=s' => \$expectedCalc,
 	'normalization=s' => \$normalization,
+	'merge_segs' => \$merge_segs, 
 	'firstbuffy' => \$firstbuffy
 ) or usage();
 
@@ -612,7 +615,7 @@ foreach $chr (@working_chroms) {
 		chomp $normal_sd;
 	}
 	execCommand("cat $win_file.3 |  awk '{ if (\$2 != last + 1) curchr++;  if (\$1 != \"Chr\") \$1 = \"sub\" curchr; last = \$3; print \$0; }' | tr ' ' '\\t' > $win_file.forsegment", 0); 
-	execCommand("$Rfolder/Rscript $exec_folder/segment.R $normal_sd $pval  $win_file.forsegment $work_dir/$chr/$chr.segments $chr $lrCol $minlogratio $maxlogratio ", $par );
+	execCommand("$Rfolder/Rscript $exec_folder/segment.R $normal_sd $pval  $win_file.forsegment $work_dir/$chr/$chr.segments $chr $lrCol $minlogratio $maxlogratio $merge_segs", $par );
 	`echo $normalization > $work_dir/$chr/$chr.normalization`;
 }
 
