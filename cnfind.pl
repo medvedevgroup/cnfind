@@ -108,7 +108,7 @@ sub execCommand {
 	} else {
 		system($command);
 		if ( $? == -1 || $? == 1 ) {
-			print "command failed: $!";
+			print "command failed ($command): $!";
 		}
 	}
 }
@@ -637,7 +637,7 @@ execCommand("$Rfolder/Rscript $exec_folder/calc_purity.R $work_dir/all.windows $
 my $purity = `cat $work_dir/summary.txt | grep purity_estimate | $exec_folder/item 2`;
 chomp $purity;
 execCommand("cat $work_dir/chr*/chr*.segments | $exec_folder/drop_first_col | sort -k1,1 -k2n,2 | uniq | awk '{ if (\$1 == \"Chr\") { print \$0 \"\\tCorrRatio\"; next; }  lograt = \$5; rat = 2 ^ lograt; corrat = (rat - 1 + $purity) / $purity; print \$0 \"\\t\" corrat; }'   > $work_dir/all.segments", 0);
-execCommand("cat $work_dir/all.segments | $exec_folder/item 1 2 3 5 9 | grep -v Start | awk '{ call = \$4 * \$5 * \$5 ; if (call != 0) print \$1, \$2, \$3, call }' | sort -k2n,2 | ~/cnfind/merge_intervals.py 0 | tr ' ' '\\t' > $work_dir/all.calls");
+execCommand("cat $work_dir/all.segments | $exec_folder/item 1 2 3 5 9 | grep -v Start | awk '{ call = \$4 * \$5 * \$5 ; if (call != 0) print \$1, \$2, \$3, call }' | sort -k2n,2 | $work_dir/merge_intervals.py 0 | tr ' ' '\\t' > $work_dir/all.calls");
 #execCommand("cat $work_dir/all.segments | item 1 2 3 9 | grep -v Start | awk '{ if (\$4 != 0) print \$0 }' | sort -k2n,2 | ~/cnfind/merge_intervals.py 0 > $work_dir/all.calls");
 #execCommand("cat $work_dir/all.segments  | grep -v Chr | awk '{ if (\$5 > 0) abb = \"Amp\"; else abb = \"Del\"; print abb, \$1, \$2, \$3, \$8, \"1\", sqrt(\$5 * \$5), \"1\"; }' | add_first_line \"Type Chromosome Start End q-value score amplitude frequencey\" | tr ' ' '\\t' > $work_dir/all.gistic");
 
