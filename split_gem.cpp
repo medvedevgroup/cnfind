@@ -41,7 +41,7 @@ string sbuf;
 
 void usage(int argc, char * argv[]) {
 	cerr << "Usage: " << argv[0] << " <db> -g genome -k kmersize -o outfile" << endl;
-	cerr << "Program descrption.\n";
+	cerr << "This program converts a gem mappability file into one with stricter criteria (experimental code).\n";
 	exit(1);
 }
 
@@ -53,8 +53,11 @@ void replace(string & sbuf) {
 }
 
 int main(int argc, char * argv[]) {
-
 	ifstream inf;
+
+    if (argc < 2)
+        usage(argc, argv);
+
 	open_file(inf, argv[1]);
 	string target = argv[2];
 	bool skipping = false;
