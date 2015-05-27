@@ -15,7 +15,7 @@
 #You should have received a copy of the GNU General Public License
 #along with cnfind (see file gpl.txt). If not, see <http://www.gnu.org/licenses/>.
 #
-
+options(error=traceback)
 library("DNAcopy")
 args            <-commandArgs(TRUE)
 normse          <- as.numeric(args[1])

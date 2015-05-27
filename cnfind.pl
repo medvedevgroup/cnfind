@@ -577,6 +577,7 @@ if (defined($normal_dir)) {
 
 foreach $chr (@working_chroms) { 
 	setFileNames($chr);
+    if (! -e "$win_file.2"){ next;}
 	checkExists("$win_file.2", "file");
 
 	execCommand("cat $win_file.2 | $Rfolder/Rscript $exec_folder/annot2_win.R  $normal_win $sam2normScaling $win_file.3", $par);
@@ -598,6 +599,7 @@ exit (0) if ($singlestage);
 SEGMENT:
 foreach $chr (@working_chroms) { 
 	setFileNames($chr, "win");
+    if (! -e "$win_file.3") {next;}
 	checkExists("$win_file.3", "file");
 
 	my $lrCol;
@@ -691,7 +693,8 @@ foreach $chr (@working_chroms) {
 	}
 
 	my $chr_len = `cat $chr_len_file | awk '{ if (\$1 == "$chr") print \$2; }'`;
-	my $pixel_width = int(1000 * $chr_len / 247249719); #TODO unhardcode chr1 len
+	my $firstchr_len = `head -n 1 $chr_len_file | awk '{ print \$2; }'`;
+	my $pixel_width = int(1000 * $chr_len / $firstchr_len);
 
 	my $call_file50 = "nocalls";
 	if (defined($work_dir) && defined($calls2plot)) {

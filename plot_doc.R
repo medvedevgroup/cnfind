@@ -33,7 +33,6 @@ numFiles       <- (length(args) - basicArgs ) / 3
 outputPlotName <- paste(outBase, ".png", sep='')
 png(outputPlotName, width=as.integer(pixel_width), height=400)
 
-
 #plot first doc 
 inputName      <- args[basicArgs + 1]
 inputSample    <- args[basicArgs + 2 ]
