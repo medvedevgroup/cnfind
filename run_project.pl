@@ -22,7 +22,7 @@ my $starting_mode = "stage1";
 my $expectedCalc = "gw";
 my $normalization = "normalPreGC";  
 #my $ref_folder = "/home/groups/atlas/pmedvedev/hg18comp"; 
-my $ref_folder = "/home/groups/atlas/pmedvedev/hg19comp";
+my $ref_folder = "hg19comp";
 my $win_size = 10000;
 $alt_work_dir = "--alt_work_dir $work_base";
 

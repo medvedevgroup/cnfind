@@ -544,7 +544,7 @@ foreach $chr (@working_chroms) {
 	checkExists($exp_file, "file");
 	checkExists($scov_file, "file");
 
-	execCommand("cat $win_file.1 | $exec_folder/doc_walker $scov_file $exp_file full | $exec_folder/gcContent $ref_folder/fasta_files_folder/$chr.fa | $Rfolder/Rscript $exec_folder/annot1_win.R  $win_file.2", $par);
+	execCommand("cat $win_file.1 | $exec_folder/doc_walker $scov_file $exp_file full | $exec_folder/gcContent $ref_folder/fasta_files_folder/$chr.fa | Rscript $exec_folder/annot1_win.R  $win_file.2", $par);
 
 }
 
@@ -570,8 +570,8 @@ if (defined($normal_dir)) {
 	#my $sampleWins = "$work_dir/chr*/chr*.win.2"; if (!(-e "$work_dir/chr1/chr1.win.2") && defined($alt_work_dir)) { $sampleWins = "$alt_work_dir/chr*/chr*.win.2"; }
 
 	my $sampleWins = "$work_dir/all.win.2";
-	my $sampleObs = `cat $sampleWins | sort -k1,1 -k2n,2 | uniq | $Rfolder/Rscript $exec_folder/get_mean_sd.R Observed | $exec_folder/item 1`;
-	my $normObs   = `cat $normal_win                            | $Rfolder/Rscript $exec_folder/get_mean_sd.R Observed | $exec_folder/item 1`;
+	my $sampleObs = `cat $sampleWins | sort -k1,1 -k2n,2 | uniq | Rscript $exec_folder/get_mean_sd.R Observed | $exec_folder/item 1`;
+	my $normObs   = `cat $normal_win                            | Rscript $exec_folder/get_mean_sd.R Observed | $exec_folder/item 1`;
 	$sam2normScaling = $sampleObs / $normObs;
 }
 
@@ -580,7 +580,7 @@ foreach $chr (@working_chroms) {
     if (! -e "$win_file.2"){ next;}
 	checkExists("$win_file.2", "file");
 
-	execCommand("cat $win_file.2 | $Rfolder/Rscript $exec_folder/annot2_win.R  $normal_win $sam2normScaling $win_file.3", $par);
+	execCommand("cat $win_file.2 | Rscript $exec_folder/annot2_win.R  $normal_win $sam2normScaling $win_file.3", $par);
 	`ln -fs $win_file.3 $win_file`
 }
 
@@ -613,11 +613,11 @@ foreach $chr (@working_chroms) {
 
 	if (defined($normal_dir)) {
 		$normal_win  = "$normal_dir/all.windows";
-		$normal_sd   = `cat $normal_win | $Rfolder/Rscript $exec_folder/get_mean_sd.R rOsEs | $exec_folder/item 2`; 
+		$normal_sd   = `cat $normal_win | Rscript $exec_folder/get_mean_sd.R rOsEs | $exec_folder/item 2`; 
 		chomp $normal_sd;
 	}
 	execCommand("cat $win_file.3 |  awk '{ if (\$2 != last + 1) curchr++;  if (\$1 != \"Chr\") \$1 = \"sub\" curchr; last = \$3; print \$0; }' | tr ' ' '\\t' > $win_file.forsegment", 0); 
-	execCommand("$Rfolder/Rscript $exec_folder/segment.R $normal_sd $pval  $win_file.forsegment $work_dir/$chr/$chr.segments $chr $lrCol $minlogratio $maxlogratio $merge_segs", $par );
+	execCommand("Rscript $exec_folder/segment.R $normal_sd $pval  $win_file.forsegment $work_dir/$chr/$chr.segments $chr $lrCol $minlogratio $maxlogratio $merge_segs", $par );
 	`echo $normalization > $work_dir/$chr/$chr.normalization`;
 }
 
@@ -635,11 +635,11 @@ COLLECT:
 `rm -f $work_dir/summary.txt`;
 
 execCommand("cat $work_dir/chr*/chr*.win.3 | sort -k1,1 -k2n,2 | uniq > $work_dir/all.windows", 0);
-execCommand("$Rfolder/Rscript $exec_folder/calc_purity.R $work_dir/all.windows $work_dir/all >> $work_dir/summary.txt");
+execCommand("Rscript $exec_folder/calc_purity.R $work_dir/all.windows $work_dir/all >> $work_dir/summary.txt");
 my $purity = `cat $work_dir/summary.txt | grep purity_estimate | $exec_folder/item 2`;
 chomp $purity;
 execCommand("cat $work_dir/chr*/chr*.segments | $exec_folder/drop_first_col | sort -k1,1 -k2n,2 | uniq | awk '{ if (\$1 == \"Chr\") { print \$0 \"\\tCorrRatio\"; next; }  lograt = \$5; rat = 2 ^ lograt; corrat = (rat - 1 + $purity) / $purity; print \$0 \"\\t\" corrat; }'   > $work_dir/all.segments", 0);
-execCommand("cat $work_dir/all.segments | $exec_folder/item 1 2 3 5 9 | grep -v Start | awk '{ call = \$4 * \$5 * \$5 ; if (call != 0) print \$1, \$2, \$3, call }' | sort -k2n,2 | $work_dir/merge_intervals.py 0 | tr ' ' '\\t' > $work_dir/all.calls");
+execCommand("cat $work_dir/all.segments | $exec_folder/item 1 2 3 5 9 | grep -v Start | awk '{ call = \$4 * \$5 * \$5 ; if (call != 0) print \$1, \$2, \$3, call }' | sort -k2n,2 | $exec_folder/merge_intervals.py 0 | tr ' ' '\\t' > $work_dir/all.calls");
 #execCommand("cat $work_dir/all.segments | item 1 2 3 9 | grep -v Start | awk '{ if (\$4 != 0) print \$0 }' | sort -k2n,2 | ~/cnfind/merge_intervals.py 0 > $work_dir/all.calls");
 #execCommand("cat $work_dir/all.segments  | grep -v Chr | awk '{ if (\$5 > 0) abb = \"Amp\"; else abb = \"Del\"; print abb, \$1, \$2, \$3, \$8, \"1\", sqrt(\$5 * \$5), \"1\"; }' | add_first_line \"Type Chromosome Start End q-value score amplitude frequencey\" | tr ' ' '\\t' > $work_dir/all.gistic");
 
@@ -706,7 +706,7 @@ foreach $chr (@working_chroms) {
 	}
 
 	my $plot_file_base = "$temp_dir/$chr.covplot";
-	execCommand("$Rfolder/Rscript $exec_folder/plot_doc.R $chr $pixel_width $plot_file_base $snp_file $segment_file $firstbuffy nocalls $call_file50 $lrCol $whatever \n", $par);
+	execCommand("Rscript $exec_folder/plot_doc.R $chr $pixel_width $plot_file_base $snp_file $segment_file $firstbuffy nocalls $call_file50 $lrCol $whatever \n", $par);
 }
 reconvene();
 
