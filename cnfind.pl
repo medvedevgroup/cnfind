@@ -455,7 +455,7 @@ if ($expectedCalc eq "auto") {
 	my $header;
 	foreach $chr (@all_chroms) {
 		next if ($chr eq "chrX" || $chr eq "chrY");
-		open (GCBINS, "<$work_dir/$chr/$chr.gcbins") or die ("$0 : failed to open gcbins file for output: $!\n");
+		open (GCBINS, "<$work_dir/$chr/$chr.gcbins") or die ("$0 : failed to open gcbins file ($work_dir/$chr/$chr.gcbins): $!\n If you're using the --chr option, you need to run CNfind on all the chrs first, because of GC normalization.");
 		while (<GCBINS>) {
 			my @entry = split ' ', $_;
 			#my @entry = split /\t/, $_;
