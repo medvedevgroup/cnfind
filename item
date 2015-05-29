@@ -9,7 +9,7 @@ do
   fi
 done
 
-/bin/awk '{print '"$a"'}'
+awk '{print '"$a"'}'
 
 exit 0
 

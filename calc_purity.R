@@ -22,16 +22,19 @@ outBase         <- args[2]
 win             <- read.table(inputName, header = T)
 observed        <- win$rOsEs
 
+#filter out NA's
+observed <- observed[!is.na(observed)]
+
 myerr           <- function(purity) { 
-	truth <- (observed - 1 + purity ) / purity
-	perr1 <- (1 - truth) ^ 2
-	perr2 <- (0.5 - truth) ^ 2 
-	perr3 <- (0 - truth) ^ 2 
-	perr4 <- (1.5 - truth) ^ 2
-	perr5 <- (2.0 - truth) ^ 2
-	perr  <- pmin(perr1, perr2, perr3, perr4, perr5)
-	terr  <- sqrt(sum(perr))
-	return(terr)
+    truth <- (observed - 1 + purity ) / purity
+    perr1 <- (1 - truth) ^ 2
+    perr2 <- (0.5 - truth) ^ 2 
+    perr3 <- (0 - truth) ^ 2 
+    perr4 <- (1.5 - truth) ^ 2
+    perr5 <- (2.0 - truth) ^ 2
+    perr  <- pmin(perr1, perr2, perr3, perr4, perr5)
+    terr  <- sqrt(sum(perr))
+    return(terr)
 }
 
 purvals <- seq(1,100) * 0.01
@@ -41,12 +44,12 @@ bestp   <- 0
 besterr <- 10000000
 
 for (p in 1:100) {
-	er <- myerr(p * 0.01)
-	#cat("At ", p, " we have error ", er, "\n")
-	if (er < besterr) {
-		besterr <- er
-		bestp   <- p * 0.01
-	}
+    er <- myerr(p * 0.01)
+    #cat("At ", p, " we have error ", er, "\n")
+    if (er < besterr) {
+        besterr <- er
+        bestp   <- p * 0.01
+    }
 }
 
 cat("purity_estimate ", bestp, "\n" )
@@ -60,10 +63,4 @@ outputPlotName <- paste(outBase, ".purity_evidence.pdf", sep='')
 pdf(outputPlotName)
 plot(seq(1,length(observed)), (observed - 1 + bestp) / bestp, ylim = c(0,4))
 dev.off()
-
-
-
-
-
-
 
